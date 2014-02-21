@@ -2,6 +2,7 @@ package main_test
 
 import (
 	"fmt"
+	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/config"
 	. "github.com/onsi/gomega"
@@ -18,6 +19,7 @@ import (
 
 var _ = Describe("File-Server", func() {
 	var (
+		bbs             *Bbs.BBS
 		port            int
 		servedDirectory string
 		session         *cmdtest.Session
@@ -43,13 +45,22 @@ var _ = Describe("File-Server", func() {
 		})
 	})
 
-	Context("when there is a file in a served directory", func() {
+	Context("when started correctly", func() {
 		BeforeEach(func() {
-			session, err = cmdtest.Start(exec.Command(fileServerBinary, "-directory", servedDirectory, "-port", strconv.Itoa(port)))
-			time.Sleep(10 * time.Millisecond)
+			session, err = cmdtest.Start(exec.Command(fileServerBinary, "-address", "localhost", "-directory", servedDirectory, "-port", strconv.Itoa(port), "-etcdMachines", etcdRunner.NodeURLS()[0]))
+			_, err := session.Wait(10 * time.Millisecond)
+			Ω(err).Should(HaveOccurred(), "Error: fileserver did not start")
 
-			Ω(err).ShouldNot(HaveOccurred())
 			ioutil.WriteFile(filepath.Join(servedDirectory, "test"), []byte("hello"), os.ModePerm)
+
+			bbs = Bbs.New(etcdRunner.Adapter())
+		})
+
+		It("should maintain presence in ETCD", func() {
+			fileServerURL, err := bbs.GetAvailableFileServer()
+			Ω(err).ShouldNot(HaveOccurred())
+
+			Ω(fileServerURL).Should(Equal(fmt.Sprintf("http://localhost:%d/", port)))
 		})
 
 		It("should return that file on GET request", func() {
