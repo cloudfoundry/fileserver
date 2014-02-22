@@ -6,7 +6,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	steno "github.com/cloudfoundry/gosteno"
@@ -15,15 +17,14 @@ import (
 	uuid "github.com/nu7hatch/gouuid"
 )
 
-const (
-	HEARTBEAT_INTERVAL = 60
-)
-
 var address string
 var port int
 var directory string
 var logLevel string
 var etcdMachines string
+var heartbeatInterval uint64
+
+var presence *Bbs.Presence
 
 func init() {
 	flag.StringVar(&address, "address", "127.0.0.1", "Specifies the address to bind to")
@@ -31,7 +32,7 @@ func init() {
 	flag.StringVar(&directory, "directory", "", "Specifies the directory to serve")
 	flag.StringVar(&logLevel, "logLevel", "info", "Logging level (none, fatal, error, warn, info, debug, debug1, debug2, all)")
 	flag.StringVar(&etcdMachines, "etcdMachines", "http://127.0.0.1:4001", "comma-separated list of etcd addresses (http://ip:port)")
-
+	flag.Uint64Var(&heartbeatInterval, "heartbeatInterval", 60, "the interval, in seconds, between heartbeats for maintaining presence")
 }
 
 func main() {
@@ -73,7 +74,21 @@ func main() {
 	}
 
 	bbs := Bbs.New(etcdAdapter)
-	bbs.MaintainFileServerPresence(HEARTBEAT_INTERVAL, fileServerURL, fileServerId.String())
+	maintainingPresence, maintainingPresenceErrors, err := bbs.MaintainFileServerPresence(heartbeatInterval, fileServerURL, fileServerId.String())
+	if err != nil {
+		logger.Errorf("Failed to maintain presence: %s", err.Error())
+		os.Exit(1)
+	}
+
+	registerSignalHandler(maintainingPresence, logger)
+
+	go func() {
+		select {
+		case <-maintainingPresenceErrors:
+			logger.Error("file-server.maintaining-presence.failed")
+			os.Exit(1)
+		}
+	}()
 
 	handler := &LoggingHandler{
 		wrappedHandler: http.FileServer(http.Dir(directory)),
@@ -106,4 +121,22 @@ type LoggingResponseWriter struct {
 func (rw *LoggingResponseWriter) WriteHeader(code int) {
 	rw.status = code
 	rw.ResponseWriter.WriteHeader(code)
+}
+
+func registerSignalHandler(maintainingPresence *Bbs.Presence, logger *steno.Logger) {
+	go func() {
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+
+		select {
+		case <-c:
+			logger.Info("Removing the key")
+			err := maintainingPresence.Remove()
+			logger.Info("Removed the key")
+			if err != nil {
+				println("failed to stop maintaining")
+			}
+			os.Exit(0)
+		}
+	}()
 }

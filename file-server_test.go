@@ -27,6 +27,7 @@ var _ = Describe("File-Server", func() {
 	)
 
 	BeforeEach(func() {
+		bbs = Bbs.New(etcdRunner.Adapter())
 		servedDirectory, err = ioutil.TempDir("", "file-server-test")
 		Ω(err).ShouldNot(HaveOccurred())
 		port = 8182 + config.GinkgoConfig.ParallelNode
@@ -35,6 +36,38 @@ var _ = Describe("File-Server", func() {
 	AfterEach(func() {
 		session.Cmd.Process.Kill()
 		os.RemoveAll(servedDirectory)
+	})
+
+	Context("when file server exits", func() {
+		It("should remove its presence", func() {
+			session, err = cmdtest.Start(exec.Command(fileServerBinary, "-address", "localhost", "-directory", servedDirectory, "-port", strconv.Itoa(port), "-etcdMachines", etcdRunner.NodeURLS()[0], "-heartbeatInterval", "10"))
+			time.Sleep(100 * time.Millisecond)
+
+			_, err = bbs.GetAvailableFileServer()
+			Ω(err).ShouldNot(HaveOccurred())
+
+			session.Cmd.Process.Signal(os.Interrupt)
+			Ω(session).Should(ExitWith(0))
+
+			_, err = bbs.GetAvailableFileServer()
+			Ω(err).Should(HaveOccurred())
+		})
+	})
+
+	Context("when it fails to maintain presence", func() {
+		BeforeEach(func() {
+			session, err = cmdtest.Start(exec.Command(fileServerBinary, "-address", "localhost", "-directory", servedDirectory, "-port", strconv.Itoa(port), "-etcdMachines", etcdRunner.NodeURLS()[0], "-heartbeatInterval", "1"))
+			_, err := session.Wait(10 * time.Millisecond)
+			Ω(err).Should(HaveOccurred(), "Error: fileserver did not start")
+		})
+
+		It("should return an error", func() {
+			_, err := bbs.GetAvailableFileServer()
+			Ω(err).ShouldNot(HaveOccurred())
+			etcdRunner.Stop()
+			time.Sleep(1500 * time.Millisecond)
+			Ω(session).Should(ExitWith(1))
+		})
 	})
 
 	Context("when started without any arguments", func() {
@@ -52,8 +85,6 @@ var _ = Describe("File-Server", func() {
 			Ω(err).Should(HaveOccurred(), "Error: fileserver did not start")
 
 			ioutil.WriteFile(filepath.Join(servedDirectory, "test"), []byte("hello"), os.ModePerm)
-
-			bbs = Bbs.New(etcdRunner.Adapter())
 		})
 
 		It("should maintain presence in ETCD", func() {
