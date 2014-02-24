@@ -9,7 +9,9 @@ import (
 	"github.com/vito/cmdtest"
 	. "github.com/vito/cmdtest/matchers"
 	"io/ioutil"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -104,6 +106,25 @@ var _ = Describe("File-Server", func() {
 			body, err := ioutil.ReadAll(resp.Body)
 			Ω(err).ShouldNot(HaveOccurred())
 			Ω(string(body)).Should(Equal("hello"))
+		})
+	})
+
+	Context("when an address is not specified", func() {
+		It("publishes its url properly", func() {
+			session, err = cmdtest.Start(exec.Command(fileServerBinary, "-directory", servedDirectory, "-port", strconv.Itoa(port), "-etcdMachines", etcdRunner.NodeURLS()[0]))
+			_, err := session.Wait(10 * time.Millisecond)
+			Ω(err).Should(HaveOccurred(), "Error: fileserver did not start")
+
+			fileServerURL, err := bbs.GetAvailableFileServer()
+			Ω(err).ShouldNot(HaveOccurred())
+
+			serverURL, err := url.Parse(fileServerURL)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			host, _, err := net.SplitHostPort(serverURL.Host)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			Ω(host).ShouldNot(Equal(""))
 		})
 	})
 })

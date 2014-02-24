@@ -12,6 +12,7 @@ import (
 
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	steno "github.com/cloudfoundry/gosteno"
+	"github.com/cloudfoundry/gunk/localip"
 	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
 	"github.com/cloudfoundry/storeadapter/workerpool"
 	uuid "github.com/nu7hatch/gouuid"
@@ -27,7 +28,7 @@ var heartbeatInterval uint64
 var presence *Bbs.Presence
 
 func init() {
-	flag.StringVar(&address, "address", "127.0.0.1", "Specifies the address to bind to")
+	flag.StringVar(&address, "address", "", "Specifies the address to bind to")
 	flag.IntVar(&port, "port", 8080, "Specifies the port of the file server")
 	flag.StringVar(&directory, "directory", "", "Specifies the directory to serve")
 	flag.StringVar(&logLevel, "logLevel", "info", "Logging level (none, fatal, error, warn, info, debug, debug1, debug2, all)")
@@ -63,7 +64,16 @@ func main() {
 
 	err = etcdAdapter.Connect()
 	if err != nil {
-		log.Fatalf("Error connecting to etcd: %s\n", err)
+		logger.Errorf("Error connecting to etcd: %s\n", err.Error())
+		os.Exit(1)
+	}
+
+	if address == "" {
+		address, err = localip.LocalIP()
+		if err != nil {
+			logger.Errorf("Error obtaining local ip address: %s\n", err.Error())
+			os.Exit(1)
+		}
 	}
 
 	fileServerURL := fmt.Sprintf("http://%s:%d/", address, port)
