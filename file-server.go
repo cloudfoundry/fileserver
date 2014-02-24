@@ -95,6 +95,7 @@ func main() {
 		logger:         *logger,
 	}
 
+	logger.Infof("Serving files on %s", fileServerURL)
 	logger.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), handler).Error())
 }
 
