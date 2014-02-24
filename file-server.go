@@ -123,7 +123,7 @@ func (rw *LoggingResponseWriter) WriteHeader(code int) {
 	rw.ResponseWriter.WriteHeader(code)
 }
 
-func registerSignalHandler(maintainingPresence *Bbs.Presence, logger *steno.Logger) {
+func registerSignalHandler(maintainingPresence Bbs.PresenceInterface, logger *steno.Logger) {
 	go func() {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
