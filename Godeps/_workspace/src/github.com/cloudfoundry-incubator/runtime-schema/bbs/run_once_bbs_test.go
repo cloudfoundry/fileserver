@@ -19,6 +19,7 @@ var _ = Describe("RunOnce BBS", func() {
 			Guid:            "some-guid",
 			ExecutorID:      "executor-id",
 			ContainerHandle: "container-handle",
+			CreatedAt:       time.Now().UnixNano(),
 		}
 	})
 
@@ -41,49 +42,6 @@ var _ = Describe("RunOnce BBS", func() {
 			close(done)
 		}, 5)
 	}
-
-	Describe("DesireRunOnce", func() {
-		BeforeEach(func() {
-			err := bbs.DesireRunOnce(runOnce)
-			Ω(err).ShouldNot(HaveOccurred())
-		})
-
-		It("creates /run_once/pending/<guid>", func() {
-			node, err := store.Get("/v1/run_once/pending/some-guid")
-			Ω(err).ShouldNot(HaveOccurred())
-			Ω(node.Value).Should(Equal(runOnce.ToJSON()))
-		})
-
-		Context("when the RunOnce is already pending", func() {
-			It("should happily overwrite the existing RunOnce", func() {
-				err := bbs.DesireRunOnce(runOnce)
-				Ω(err).ShouldNot(HaveOccurred())
-			})
-		})
-
-		Context("when the store is out of commission", func() {
-			itRetriesUntilStoreComesBack((*BBS).DesireRunOnce)
-		})
-	})
-
-	Describe("ResolveRunOnce", func() {
-		BeforeEach(func() {
-			err := bbs.DesireRunOnce(runOnce)
-			Ω(err).ShouldNot(HaveOccurred())
-		})
-
-		It("should remove /run_once/pending/<guid>", func() {
-			err := bbs.ResolveRunOnce(runOnce)
-			Ω(err).ShouldNot(HaveOccurred())
-
-			_, err = store.Get("/v1/run_once/pending/some-guid")
-			Ω(err).Should(Equal(storeadapter.ErrorKeyNotFound))
-		})
-
-		Context("when the store is out of commission", func() {
-			itRetriesUntilStoreComesBack((*BBS).ResolveRunOnce)
-		})
-	})
 
 	Describe("MaintainExecutorPresence", func() {
 		var (
@@ -299,7 +257,9 @@ var _ = Describe("RunOnce BBS", func() {
 			err := bbs.DesireRunOnce(runOnce)
 			Ω(err).ShouldNot(HaveOccurred())
 
-			Expect(<-events).To(Equal(runOnce))
+			e := <-events
+
+			Expect(e).To(Equal(runOnce))
 
 			err = bbs.DesireRunOnce(runOnce)
 			Ω(err).ShouldNot(HaveOccurred())
@@ -333,74 +293,6 @@ var _ = Describe("RunOnce BBS", func() {
 			stop <- true
 
 			err := bbs.DesireRunOnce(runOnce)
-			Ω(err).ShouldNot(HaveOccurred())
-
-			_, ok := <-events
-
-			Expect(ok).To(BeFalse())
-
-			close(done)
-		})
-	})
-
-	Describe("WatchForCompletedRunOnce", func() {
-		var (
-			events <-chan (models.RunOnce)
-			stop   chan<- bool
-		)
-
-		BeforeEach(func() {
-			events, stop, _ = bbs.WatchForCompletedRunOnce()
-		})
-
-		It("should send an event down the pipe for creates", func(done Done) {
-			err := bbs.CompleteRunOnce(runOnce)
-			Ω(err).ShouldNot(HaveOccurred())
-
-			Expect(<-events).To(Equal(runOnce))
-
-			close(done)
-		})
-
-		It("should send an event down the pipe for sets", func(done Done) {
-			err := bbs.DesireRunOnce(runOnce)
-			Ω(err).ShouldNot(HaveOccurred())
-
-			err = bbs.CompleteRunOnce(runOnce)
-			Ω(err).ShouldNot(HaveOccurred())
-
-			Expect(<-events).To(Equal(runOnce))
-
-			bbs.ConvergeRunOnce() //should bump the completed key
-
-			Expect(<-events).To(Equal(runOnce))
-
-			close(done)
-		})
-
-		It("should not send an event down the pipe for deletes", func(done Done) {
-			err := bbs.CompleteRunOnce(runOnce)
-			Ω(err).ShouldNot(HaveOccurred())
-
-			Expect(<-events).To(Equal(runOnce))
-
-			bbs.ConvergeRunOnce() //should delete the key
-
-			otherRunOnce := runOnce
-			otherRunOnce.Guid = runOnce.Guid + "1"
-
-			err = bbs.CompleteRunOnce(otherRunOnce)
-			Ω(err).ShouldNot(HaveOccurred())
-
-			Expect(<-events).To(Equal(otherRunOnce))
-
-			close(done)
-		})
-
-		It("closes the events channel when told to stop", func(done Done) {
-			stop <- true
-
-			err := bbs.CompleteRunOnce(runOnce)
 			Ω(err).ShouldNot(HaveOccurred())
 
 			_, ok := <-events
@@ -471,211 +363,4 @@ var _ = Describe("RunOnce BBS", func() {
 
 	})
 
-	Describe("ConvergeRunOnce", func() {
-		var otherRunOnce models.RunOnce
-
-		BeforeEach(func() {
-			otherRunOnce = models.RunOnce{
-				Guid: "some-other-guid",
-			}
-		})
-
-		Context("when a pending key exists", func() {
-			BeforeEach(func() {
-				err := bbs.DesireRunOnce(runOnce)
-				Ω(err).ShouldNot(HaveOccurred())
-			})
-
-			Context("and there is a claim key", func() {
-				BeforeEach(func() {
-					err := bbs.ClaimRunOnce(runOnce)
-					Ω(err).ShouldNot(HaveOccurred())
-				})
-
-				It("should not kick the pending key", func(done Done) {
-					events, _, _ := bbs.WatchForDesiredRunOnce()
-
-					bbs.ConvergeRunOnce()
-
-					bbs.DesireRunOnce(otherRunOnce)
-
-					Ω(<-events).Should(Equal(otherRunOnce))
-
-					close(done)
-				})
-
-				It("should not delete the claim key", func() {
-					bbs.ConvergeRunOnce()
-
-					_, err := store.Get("/v1/run_once/claimed/some-guid")
-					Ω(err).ShouldNot(HaveOccurred())
-				})
-
-				Context("and the associated executor is still alive", func() {
-					var presence PresenceInterface
-
-					BeforeEach(func() {
-						var err error
-						presence, _, err = bbs.MaintainExecutorPresence(10, runOnce.ExecutorID)
-						Ω(err).ShouldNot(HaveOccurred())
-					})
-
-					AfterEach(func() {
-						presence.Remove()
-					})
-
-					It("should not mark the task as completed/failed", func() {
-						bbs.ConvergeRunOnce()
-						completedRunOnces, err := bbs.GetAllCompletedRunOnces()
-						Ω(err).ShouldNot(HaveOccurred())
-						Ω(completedRunOnces).Should(HaveLen(0))
-					})
-				})
-
-				Context("and the associated executor has gone missing", func() {
-					It("should mark the RunOnce as completed (in the failed state)", func() {
-						bbs.ConvergeRunOnce()
-						completedRunOnces, err := bbs.GetAllCompletedRunOnces()
-						Ω(err).ShouldNot(HaveOccurred())
-						Ω(completedRunOnces).Should(HaveLen(1))
-						Ω(completedRunOnces[0].Failed).Should(BeTrue())
-						Ω(completedRunOnces[0].FailureReason).Should(ContainSubstring("executor"))
-					})
-				})
-			})
-
-			Context("and there is a running key", func() {
-				BeforeEach(func() {
-					err := bbs.StartRunOnce(runOnce)
-					Ω(err).ShouldNot(HaveOccurred())
-				})
-
-				It("should not kick the pending key", func(done Done) {
-					events, _, _ := bbs.WatchForDesiredRunOnce()
-
-					bbs.ConvergeRunOnce()
-
-					bbs.DesireRunOnce(otherRunOnce)
-
-					Ω(<-events).Should(Equal(otherRunOnce))
-
-					close(done)
-				})
-
-				It("should not delete the running key", func() {
-					bbs.ConvergeRunOnce()
-
-					_, err := store.Get("/v1/run_once/running/some-guid")
-					Ω(err).ShouldNot(HaveOccurred())
-				})
-
-				Context("and the associated executor is still alive", func() {
-					var presence PresenceInterface
-
-					BeforeEach(func() {
-						var err error
-						presence, _, err = bbs.MaintainExecutorPresence(10, runOnce.ExecutorID)
-						Ω(err).ShouldNot(HaveOccurred())
-					})
-
-					AfterEach(func() {
-						presence.Remove()
-					})
-
-					It("should not mark the task as completed/failed", func() {
-						bbs.ConvergeRunOnce()
-						completedRunOnces, err := bbs.GetAllCompletedRunOnces()
-						Ω(err).ShouldNot(HaveOccurred())
-						Ω(completedRunOnces).Should(HaveLen(0))
-					})
-				})
-
-				Context("and the associated executor has gone missing", func() {
-					It("should mark the RunOnce as completed (in the failed state)", func() {
-						bbs.ConvergeRunOnce()
-						completedRunOnces, err := bbs.GetAllCompletedRunOnces()
-						Ω(err).ShouldNot(HaveOccurred())
-						Ω(completedRunOnces).Should(HaveLen(1))
-						Ω(completedRunOnces[0].Failed).Should(BeTrue())
-						Ω(completedRunOnces[0].FailureReason).Should(ContainSubstring("executor"))
-					})
-				})
-			})
-
-			Context("and there is a completed key", func() {
-				BeforeEach(func() {
-					err := bbs.CompleteRunOnce(runOnce)
-					Ω(err).ShouldNot(HaveOccurred())
-				})
-
-				It("should not kick the pending key", func(done Done) {
-					events, _, _ := bbs.WatchForDesiredRunOnce()
-
-					bbs.ConvergeRunOnce()
-
-					bbs.DesireRunOnce(otherRunOnce)
-
-					Ω(<-events).Should(Equal(otherRunOnce))
-
-					close(done)
-				})
-
-				It("should kick the completed key", func(done Done) {
-					events, _, _ := bbs.WatchForCompletedRunOnce()
-
-					bbs.ConvergeRunOnce()
-
-					Ω(<-events).Should(Equal(runOnce))
-
-					close(done)
-				})
-
-				It("should not delete the completed key", func() {
-					bbs.ConvergeRunOnce()
-
-					_, err := store.Get("/v1/run_once/completed/some-guid")
-					Ω(err).ShouldNot(HaveOccurred())
-				})
-			})
-
-			Context("and there are no other keys", func() {
-				It("should kick the pending key",
-					func(done Done) {
-						events, _, _ := bbs.WatchForDesiredRunOnce()
-
-						bbs.ConvergeRunOnce()
-
-						Ω(<-events).Should(Equal(runOnce))
-
-						close(done)
-					})
-			})
-		})
-
-		Context("when a pending key does not exist", func() {
-			BeforeEach(func() {
-				err := bbs.ClaimRunOnce(runOnce)
-				Ω(err).ShouldNot(HaveOccurred())
-
-				err = bbs.StartRunOnce(runOnce)
-				Ω(err).ShouldNot(HaveOccurred())
-
-				err = bbs.CompleteRunOnce(runOnce)
-				Ω(err).ShouldNot(HaveOccurred())
-			})
-
-			It("should delete any extra keys", func() {
-				bbs.ConvergeRunOnce()
-
-				_, err := store.Get("/v1/run_once/claimed/some-guid")
-				Ω(err).Should(HaveOccurred())
-
-				_, err = store.Get("/v1/run_once/running/some-guid")
-				Ω(err).Should(HaveOccurred())
-
-				_, err = store.Get("/v1/run_once/completed/some-guid")
-				Ω(err).Should(HaveOccurred())
-			})
-		})
-	})
 })

@@ -1,6 +1,8 @@
 package models_test
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -22,6 +24,7 @@ var _ = Describe("RunOnce", func() {
 			}
 		],
 		"container_handle":"17fgsafdfcvc",
+		"result": "turboencabulated",
 		"failed":true,
 		"failure_reason":"because i said so",
 		"memory_mb":256,
@@ -30,7 +33,8 @@ var _ = Describe("RunOnce", func() {
 			"guid": "123",
 			"source_name": "APP",
 			"index": 42
-		}
+		},
+		"created_at": 1393371971000000000
 	}`
 
 	BeforeEach(func() {
@@ -56,10 +60,12 @@ var _ = Describe("RunOnce", func() {
 			},
 			ExecutorID:      "executor",
 			ContainerHandle: "17fgsafdfcvc",
+			Result:          "turboencabulated",
 			Failed:          true,
 			FailureReason:   "because i said so",
 			MemoryMB:        256,
 			DiskMB:          1024,
+			CreatedAt:       time.Date(2014, time.February, 25, 23, 46, 11, 00, time.UTC).UnixNano(),
 		}
 	})
 

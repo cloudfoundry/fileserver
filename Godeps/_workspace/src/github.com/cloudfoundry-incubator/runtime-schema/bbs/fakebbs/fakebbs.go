@@ -33,8 +33,9 @@ type FakeExecutorBBS struct {
 	StartedRunOnce  models.RunOnce
 	StartRunOnceErr error
 
-	CompletedRunOnce   models.RunOnce
-	CompleteRunOnceErr error
+	CompletedRunOnce           models.RunOnce
+	CompleteRunOnceErr         error
+	ConvergeRunOnceTimeToClaim time.Duration
 }
 
 func NewFakeExecutorBBS() *FakeExecutorBBS {
@@ -69,7 +70,8 @@ func (fakeBBS *FakeExecutorBBS) CompleteRunOnce(runOnce models.RunOnce) error {
 	return fakeBBS.CompleteRunOnceErr
 }
 
-func (fakeBBS *FakeExecutorBBS) ConvergeRunOnce() {
+func (fakeBBS *FakeExecutorBBS) ConvergeRunOnce(timeToClaim time.Duration) {
+	fakeBBS.ConvergeRunOnceTimeToClaim = timeToClaim
 	fakeBBS.CallsToConverge++
 }
 

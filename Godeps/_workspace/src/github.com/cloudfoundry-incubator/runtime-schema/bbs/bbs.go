@@ -19,7 +19,7 @@ type ExecutorBBS interface {
 	StartRunOnce(models.RunOnce) error
 	CompleteRunOnce(models.RunOnce) error
 
-	ConvergeRunOnce() //should be executed periodically
+	ConvergeRunOnce(timeToClaim time.Duration) //should be executed periodically
 	GrabRunOnceLock(time.Duration) (bool, error)
 }
 
@@ -38,7 +38,9 @@ type FileServerBBS interface {
 
 func New(store storeadapter.StoreAdapter) *BBS {
 	return &BBS{
-		ExecutorBBS:   &executorBBS{store: store},
+		ExecutorBBS: &executorBBS{
+			store: store,
+		},
 		StagerBBS:     &stagerBBS{store: store},
 		FileServerBBS: &fileServerBBS{store: store},
 		store:         store,
