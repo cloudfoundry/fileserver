@@ -45,18 +45,18 @@ var _ = Describe("RunOnce BBS", func() {
 
 	Describe("MaintainExecutorPresence", func() {
 		var (
-			executorId string
-			interval   uint64
-			errors     chan error
-			err        error
-			presence   PresenceInterface
+			executorId  string
+			interval    time.Duration
+			disappeared <-chan bool
+			err         error
+			presence    PresenceInterface
 		)
 
 		BeforeEach(func() {
 			executorId = "stubExecutor"
-			interval = uint64(1)
+			interval = 1 * time.Second
 
-			presence, errors, err = bbs.MaintainExecutorPresence(interval, executorId)
+			presence, disappeared, err = bbs.MaintainExecutorPresence(interval, executorId)
 			Ω(err).ShouldNot(HaveOccurred())
 		})
 
@@ -67,11 +67,8 @@ var _ = Describe("RunOnce BBS", func() {
 		It("should put /executor/EXECUTOR_ID in the store with a TTL", func() {
 			node, err := store.Get("/v1/executor/" + executorId)
 			Ω(err).ShouldNot(HaveOccurred())
-			Ω(node).Should(Equal(storeadapter.StoreNode{
-				Key:   "/v1/executor/" + executorId,
-				Value: []byte{},
-				TTL:   interval, // move to config one day
-			}))
+			Ω(node.Key).Should(Equal("/v1/executor/" + executorId))
+			Ω(node.TTL).Should(Equal(uint64(interval.Seconds()))) // move to config one day
 		})
 	})
 
@@ -82,10 +79,10 @@ var _ = Describe("RunOnce BBS", func() {
 
 			Ω(executors).Should(BeEmpty())
 
-			presenceA, _, err := bbs.MaintainExecutorPresence(1, "executor-a")
+			presenceA, _, err := bbs.MaintainExecutorPresence(1*time.Second, "executor-a")
 			Ω(err).ShouldNot(HaveOccurred())
 
-			presenceB, _, err := bbs.MaintainExecutorPresence(1, "executor-b")
+			presenceB, _, err := bbs.MaintainExecutorPresence(1*time.Second, "executor-b")
 			Ω(err).ShouldNot(HaveOccurred())
 
 			Eventually(func() []string {
@@ -350,17 +347,4 @@ var _ = Describe("RunOnce BBS", func() {
 			Ω(runOnces).Should(ContainElement(runOnce))
 		})
 	})
-
-	Describe("Locking", func() {
-		It("grabs the lock and holds it", func() {
-			ttl := 1 * time.Second
-			result, _ := bbs.GrabRunOnceLock(ttl)
-			Ω(result).To(BeTrue())
-
-			result, _ = bbs.GrabRunOnceLock(ttl)
-			Ω(result).To(BeFalse())
-		})
-
-	})
-
 })

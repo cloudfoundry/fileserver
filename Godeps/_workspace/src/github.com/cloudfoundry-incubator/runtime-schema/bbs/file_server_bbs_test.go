@@ -1,12 +1,14 @@
 package bbs_test
 
 import (
-	. "github.com/cloudfoundry-incubator/runtime-schema/bbs"
-	"github.com/cloudfoundry-incubator/runtime-schema/models/factories"
-	"github.com/cloudfoundry/storeadapter"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	. "github.com/cloudfoundry-incubator/runtime-schema/bbs"
+	"github.com/cloudfoundry-incubator/runtime-schema/models/factories"
+	"github.com/cloudfoundry/storeadapter"
 )
 
 var _ = Describe("File Server BBS", func() {
@@ -14,8 +16,8 @@ var _ = Describe("File Server BBS", func() {
 		bbs           *BBS
 		fileServerURL string
 		fileServerId  string
-		interval      uint64
-		errors        chan error
+		interval      time.Duration
+		disappeared   <-chan bool
 		err           error
 		presence      PresenceInterface
 	)
@@ -28,9 +30,9 @@ var _ = Describe("File Server BBS", func() {
 		BeforeEach(func() {
 			fileServerURL = "stubFileServerURL"
 			fileServerId = factories.GenerateGuid()
-			interval = uint64(1)
+			interval = 1 * time.Second
 
-			presence, errors, err = bbs.MaintainFileServerPresence(interval, fileServerURL, fileServerId)
+			presence, disappeared, err = bbs.MaintainFileServerPresence(interval, fileServerURL, fileServerId)
 			Ω(err).ShouldNot(HaveOccurred())
 		})
 
@@ -44,7 +46,7 @@ var _ = Describe("File Server BBS", func() {
 			Ω(node).Should(Equal(storeadapter.StoreNode{
 				Key:   "/v1/file_server/" + fileServerId,
 				Value: []byte(fileServerURL),
-				TTL:   interval, // move to config one day
+				TTL:   uint64(interval.Seconds()), // move to config one day
 			}))
 		})
 	})
@@ -54,9 +56,9 @@ var _ = Describe("File Server BBS", func() {
 			BeforeEach(func() {
 				fileServerURL = "http://128.70.3.29:8012"
 				fileServerId = factories.GenerateGuid()
-				interval = uint64(1)
+				interval = 1 * time.Second
 
-				presence, errors, err = bbs.MaintainFileServerPresence(interval, fileServerURL, fileServerId)
+				presence, disappeared, err = bbs.MaintainFileServerPresence(interval, fileServerURL, fileServerId)
 				Ω(err).ShouldNot(HaveOccurred())
 			})
 
@@ -76,12 +78,12 @@ var _ = Describe("File Server BBS", func() {
 				fileServerId = factories.GenerateGuid()
 				otherFileServerId := factories.GenerateGuid()
 
-				interval = uint64(1)
+				interval = 1 * time.Second
 
-				presence, errors, err = bbs.MaintainFileServerPresence(interval, fileServerURL, fileServerId)
+				presence, disappeared, err = bbs.MaintainFileServerPresence(interval, fileServerURL, fileServerId)
 				Ω(err).ShouldNot(HaveOccurred())
 
-				presence, errors, err = bbs.MaintainFileServerPresence(interval, otherFileServerURL, otherFileServerId)
+				presence, disappeared, err = bbs.MaintainFileServerPresence(interval, otherFileServerURL, otherFileServerId)
 				Ω(err).ShouldNot(HaveOccurred())
 			})
 
