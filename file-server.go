@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	steno "github.com/cloudfoundry/gosteno"
@@ -23,7 +24,7 @@ var port int
 var directory string
 var logLevel string
 var etcdMachines string
-var heartbeatInterval uint64
+var heartbeatInterval time.Duration
 
 var presence *Bbs.Presence
 
@@ -33,7 +34,7 @@ func init() {
 	flag.StringVar(&directory, "directory", "", "Specifies the directory to serve")
 	flag.StringVar(&logLevel, "logLevel", "info", "Logging level (none, fatal, error, warn, info, debug, debug1, debug2, all)")
 	flag.StringVar(&etcdMachines, "etcdMachines", "http://127.0.0.1:4001", "comma-separated list of etcd addresses (http://ip:port)")
-	flag.Uint64Var(&heartbeatInterval, "heartbeatInterval", 60, "the interval, in seconds, between heartbeats for maintaining presence")
+	flag.DurationVar(&heartbeatInterval, "heartbeatInterval", 60*time.Second, "the interval between heartbeats for maintaining presence")
 }
 
 func main() {
@@ -84,7 +85,7 @@ func main() {
 	}
 
 	bbs := Bbs.New(etcdAdapter)
-	maintainingPresence, maintainingPresenceErrors, err := bbs.MaintainFileServerPresence(heartbeatInterval, fileServerURL, fileServerId.String())
+	maintainingPresence, lostPresence, err := bbs.MaintainFileServerPresence(heartbeatInterval, fileServerURL, fileServerId.String())
 	if err != nil {
 		logger.Errorf("Failed to maintain presence: %s", err.Error())
 		os.Exit(1)
@@ -94,7 +95,7 @@ func main() {
 
 	go func() {
 		select {
-		case <-maintainingPresenceErrors:
+		case <-lostPresence:
 			logger.Error("file-server.maintaining-presence.failed")
 			os.Exit(1)
 		}
@@ -141,12 +142,7 @@ func registerSignalHandler(maintainingPresence Bbs.PresenceInterface, logger *st
 
 		select {
 		case <-c:
-			logger.Info("Removing the key")
-			err := maintainingPresence.Remove()
-			logger.Info("Removed the key")
-			if err != nil {
-				println("failed to stop maintaining")
-			}
+			maintainingPresence.Remove()
 			os.Exit(0)
 		}
 	}()

@@ -42,7 +42,7 @@ var _ = Describe("File-Server", func() {
 
 	Context("when file server exits", func() {
 		It("should remove its presence", func() {
-			session, err = cmdtest.Start(exec.Command(fileServerBinary, "-address", "localhost", "-directory", servedDirectory, "-port", strconv.Itoa(port), "-etcdMachines", etcdRunner.NodeURLS()[0], "-heartbeatInterval", "10"))
+			session, err = cmdtest.Start(exec.Command(fileServerBinary, "-address", "localhost", "-directory", servedDirectory, "-port", strconv.Itoa(port), "-etcdMachines", etcdRunner.NodeURLS()[0], "-heartbeatInterval", "10s"))
 			time.Sleep(100 * time.Millisecond)
 
 			_, err = bbs.GetAvailableFileServer()
@@ -58,7 +58,7 @@ var _ = Describe("File-Server", func() {
 
 	Context("when it fails to maintain presence", func() {
 		BeforeEach(func() {
-			session, err = cmdtest.Start(exec.Command(fileServerBinary, "-address", "localhost", "-directory", servedDirectory, "-port", strconv.Itoa(port), "-etcdMachines", etcdRunner.NodeURLS()[0], "-heartbeatInterval", "1"))
+			session, err = cmdtest.Start(exec.Command(fileServerBinary, "-address", "localhost", "-directory", servedDirectory, "-port", strconv.Itoa(port), "-etcdMachines", etcdRunner.NodeURLS()[0], "-heartbeatInterval", "1s"))
 			_, err := session.Wait(10 * time.Millisecond)
 			Ω(err).Should(HaveOccurred(), "Error: fileserver did not start")
 		})
