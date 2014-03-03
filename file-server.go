@@ -3,6 +3,14 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/cloudfoundry-incubator/file-server/handlers"
+	"github.com/cloudfoundry-incubator/file-server/router"
+	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
+	steno "github.com/cloudfoundry/gosteno"
+	"github.com/cloudfoundry/gunk/localip"
+	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
+	"github.com/cloudfoundry/storeadapter/workerpool"
+	uuid "github.com/nu7hatch/gouuid"
 	"log"
 	"net/http"
 	"os"
@@ -10,14 +18,6 @@ import (
 	"strings"
 	"syscall"
 	"time"
-
-	"github.com/cloudfoundry-incubator/file-server/handlers/static"
-	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
-	steno "github.com/cloudfoundry/gosteno"
-	"github.com/cloudfoundry/gunk/localip"
-	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
-	"github.com/cloudfoundry/storeadapter/workerpool"
-	uuid "github.com/nu7hatch/gouuid"
 )
 
 var address string
@@ -102,9 +102,10 @@ func main() {
 		}
 	}()
 
-	staticFileServer := static.New(directory)
+	actions := handlers.Exports(directory)
+	r := router.New(actions)
 	logger.Infof("Serving files on %s", fileServerURL)
-	logger.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), staticFileServer).Error())
+	logger.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), r).Error())
 }
 
 func registerSignalHandler(maintainingPresence Bbs.PresenceInterface, logger *steno.Logger) {
