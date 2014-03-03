@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/cloudfoundry-incubator/file-server/handlers/static"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	steno "github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/gunk/localip"
@@ -101,38 +102,9 @@ func main() {
 		}
 	}()
 
-	handler := &LoggingHandler{
-		wrappedHandler: http.FileServer(http.Dir(directory)),
-		logger:         *logger,
-	}
-
+	staticFileServer := static.New(directory)
 	logger.Infof("Serving files on %s", fileServerURL)
-	logger.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), handler).Error())
-}
-
-type LoggingHandler struct {
-	wrappedHandler http.Handler
-	logger         steno.Logger
-}
-
-func (h *LoggingHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
-	rw := &LoggingResponseWriter{
-		ResponseWriter: resp,
-		status:         200,
-	}
-
-	h.wrappedHandler.ServeHTTP(rw, req)
-	h.logger.Infof("Got: %s, response status %d", req.URL.String(), rw.status)
-}
-
-type LoggingResponseWriter struct {
-	http.ResponseWriter
-	status int
-}
-
-func (rw *LoggingResponseWriter) WriteHeader(code int) {
-	rw.status = code
-	rw.ResponseWriter.WriteHeader(code)
+	logger.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), staticFileServer).Error())
 }
 
 func registerSignalHandler(maintainingPresence Bbs.PresenceInterface, logger *steno.Logger) {

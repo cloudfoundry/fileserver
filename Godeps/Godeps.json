@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/cloudfoundry-incubator/file-server",
-	"GoVersion": "go1.2",
+	"GoVersion": "go1.2.1",
 	"Packages": [
 		"./..."
 	],
@@ -20,16 +20,20 @@
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/gunk/localip",
-			"Rev": "53bcf9b1215796e9173ef67baf6e9e2f1850a644"
+			"Rev": "67d1d59a7eef22e8cdb1198e58387c77442b5d9f"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/storeadapter",
-			"Rev": "e12f22109b315112a5b47638d36e096a84723fe9"
+			"Rev": "6bb367d8ac1a7d5ac0f3fd9f52d1716669b5ecc8"
 		},
 		{
 			"ImportPath": "github.com/coreos/go-etcd/etcd",
-			"Comment": "v0.2.0-rc1-93-g1fa1168",
-			"Rev": "1fa1168dc7736bff27c58a850715db33411ae326"
+			"Comment": "v0.2.0-rc1-91-gea119eb",
+			"Rev": "ea119ebc0de7050995ab0d34f3b94e3f331f334c"
+		},
+		{
+			"ImportPath": "github.com/gorilla/handlers",
+			"Rev": "78515eaa93ac9fa1b864f61ef263804af16fb944"
 		},
 		{
 			"ImportPath": "github.com/nu7hatch/gouuid",
@@ -37,15 +41,15 @@
 		},
 		{
 			"ImportPath": "github.com/onsi/ginkgo",
-			"Rev": "349f2d5baae688f172db626a521c8317e11550d3"
+			"Rev": "8b49fe604d41a457a4aff6393eb194ea87c5ae38"
 		},
 		{
 			"ImportPath": "github.com/onsi/gomega",
-			"Rev": "930b4522e0d3027320b5d56f8a375796f2e376e5"
+			"Rev": "0ae2dac3717a2ba2d98242811627cbf9990442a7"
 		},
 		{
 			"ImportPath": "github.com/vito/cmdtest",
-			"Rev": "5073503e50f68b9c14d073ab261164965bffa872"
+			"Rev": "fbd89b77403b5ed2f394946ec8debcc251b96815"
 		}
 	]
 }
