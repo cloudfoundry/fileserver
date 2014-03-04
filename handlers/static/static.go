@@ -8,5 +8,6 @@ import (
 
 func New(dir string) http.Handler {
 	fileServer := http.FileServer(http.Dir(dir))
-	return handlers.LoggingHandler(os.Stdout, fileServer)
+	stripped := http.StripPrefix("/static", fileServer)
+	return handlers.LoggingHandler(os.Stdout, stripped)
 }

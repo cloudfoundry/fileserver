@@ -5,8 +5,8 @@ import (
 	"fmt"
 	conf "github.com/cloudfoundry-incubator/file-server/config"
 	"github.com/cloudfoundry-incubator/file-server/handlers"
-	"github.com/cloudfoundry-incubator/file-server/router"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
+	"github.com/cloudfoundry-incubator/runtime-schema/router"
 	steno "github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/gunk/localip"
 	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
@@ -107,8 +107,13 @@ func main() {
 		}
 	}()
 
-	actions := handlers.Exports(config)
-	r := router.New(actions)
+	actions := handlers.New(config)
+	r, err := router.NewFileServerRoutes().Router(actions)
+	if err != nil {
+		logger.Errorf("Failed to build router: %s", err)
+		os.Exit(1)
+	}
+
 	logger.Infof("Serving files on %s", fileServerURL)
 	logger.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", config.Port), r).Error())
 }

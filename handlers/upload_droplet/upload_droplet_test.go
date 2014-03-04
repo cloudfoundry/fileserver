@@ -3,14 +3,15 @@ package upload_droplet_test
 import (
 	"bytes"
 	"fmt"
-	"github.com/cloudfoundry-incubator/file-server/handlers/upload_droplet"
+	"github.com/cloudfoundry-incubator/file-server/config"
+	"github.com/cloudfoundry-incubator/file-server/handlers"
+	"github.com/cloudfoundry-incubator/runtime-schema/router"
 	ts "github.com/cloudfoundry/gunk/test_server"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"path"
 	"time"
 )
@@ -41,32 +42,25 @@ func PollingResponseBody(jobGuid, status string) string {
 
 var _ = Describe("UploadDroplet", func() {
 	var (
-		uploader http.Handler
-
-		requestedUrl     *url.URL
-		uploadedBytes    []byte
-		uploadedFileName string
-
-		incomingRequest  *http.Request
-		outgoingResponse *httptest.ResponseRecorder
-
 		fakeCloudController *ts.Server
 		postStatusCode      int
 		postResponseBody    string
+		uploadedBytes       []byte
+		uploadedFileName    string
+
+		outgoingResponse *httptest.ResponseRecorder
 	)
 
 	BeforeEach(func() {
-		requestedUrl = nil
 		uploadedBytes = nil
 		uploadedFileName = ""
 
 		fakeCloudController = ts.New()
 
-		uploader = upload_droplet.New(fakeCloudController.URL(), "bob", "password", 10*time.Millisecond)
-
 		fakeCloudController.Append(ts.CombineHandlers(
 			ts.VerifyRequest("POST", "/staging/droplets/app-guid/upload", "async=true"),
 			ts.VerifyBasicAuth("bob", "password"),
+			ts.RespondPtr(&postStatusCode, &postResponseBody),
 			func(w http.ResponseWriter, r *http.Request) {
 				file, fileHeader, err := r.FormFile("upload[droplet]")
 				Ω(err).ShouldNot(HaveOccurred())
@@ -74,23 +68,34 @@ var _ = Describe("UploadDroplet", func() {
 				Ω(err).ShouldNot(HaveOccurred())
 				uploadedFileName = fileHeader.Filename
 			},
-			ts.RespondPtr(&postStatusCode, &postResponseBody),
 		))
 	})
 
 	JustBeforeEach(func(done Done) {
-		var err error
-		buffer := bytes.NewBufferString("the file I'm uploading")
-		incomingRequest, err = http.NewRequest("POST", "http://file-server.com/droplet/app-guid", buffer)
+		conf := config.New()
+		conf.CCAddress = fakeCloudController.URL()
+		conf.CCUsername = "bob"
+		conf.CCPassword = "password"
+		conf.CCJobPollingInterval = 10 * time.Millisecond
+
+		r, err := router.NewFileServerRoutes().Router(handlers.New(conf))
 		Ω(err).ShouldNot(HaveOccurred())
+
+		buffer := bytes.NewBufferString("the file I'm uploading")
+		incomingRequest, err := http.NewRequest("POST", "http://file-server.com/droplet/app-guid", buffer)
+		Ω(err).ShouldNot(HaveOccurred())
+
 		outgoingResponse = httptest.NewRecorder()
 
-		uploader.ServeHTTP(outgoingResponse, incomingRequest)
+		r.ServeHTTP(outgoingResponse, incomingRequest)
+
 		close(done)
 	})
 
 	AfterEach(func() {
 		fakeCloudController.Close()
+		postStatusCode = 0
+		postResponseBody = ""
 	})
 
 	Context("uploading the file, when all is well", func() {

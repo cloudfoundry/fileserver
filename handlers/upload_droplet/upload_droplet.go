@@ -7,7 +7,6 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
-	"path"
 	"time"
 )
 
@@ -98,7 +97,7 @@ func (h *dropletUploader) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *dropletUploader) uploadURL(r *http.Request) string {
-	appGuid := path.Base(r.URL.Path)
+	appGuid := r.FormValue(":guid")
 	return urljoiner.Join(h.addr, "staging", "droplets", appGuid, "upload?async=true")
 }
 

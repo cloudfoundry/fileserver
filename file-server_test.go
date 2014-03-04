@@ -100,7 +100,7 @@ var _ = Describe("File-Server", func() {
 		})
 
 		It("should return that file on GET request", func() {
-			resp, err := http.Get(fmt.Sprintf("http://localhost:%d/test", port))
+			resp, err := http.Get(fmt.Sprintf("http://localhost:%d/static/test", port))
 			Ω(err).ShouldNot(HaveOccurred())
 			defer resp.Body.Close()
 

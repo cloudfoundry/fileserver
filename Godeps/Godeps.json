@@ -6,12 +6,20 @@
 	],
 	"Deps": [
 		{
+			"ImportPath": "github.com/bmizerany/pat",
+			"Rev": "51b7af73e39f6dc59846b22d56ca886d105ef0c3"
+		},
+		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/bbs",
-			"Rev": "0c99006a44442e3179fee5149043948da51611fb"
+			"Rev": "5828863879f35e7960e17e3cbcffd441760c6d82"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/models",
-			"Rev": "0c99006a44442e3179fee5149043948da51611fb"
+			"Rev": "5828863879f35e7960e17e3cbcffd441760c6d82"
+		},
+		{
+			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/router",
+			"Rev": "5828863879f35e7960e17e3cbcffd441760c6d82"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/gosteno",
