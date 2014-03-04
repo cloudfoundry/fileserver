@@ -28,6 +28,15 @@ var _ = Describe("File-Server", func() {
 		err             error
 	)
 
+	start := func(extras ...string) *cmdtest.Session {
+		args := append(extras, "-staticDirectory", servedDirectory, "-port", strconv.Itoa(port), "-etcdMachines", etcdRunner.NodeURLS()[0], "-ccAddress", "http://example.com/cc", "-ccUsername", "bob", "-ccPassword", "password")
+		session, err = cmdtest.Start(exec.Command(fileServerBinary, args...))
+		Ω(err).ShouldNot(HaveOccurred())
+		_, err := session.Wait(10 * time.Millisecond)
+		Ω(err).Should(HaveOccurred(), "Error: fileserver did not start")
+		return session
+	}
+
 	BeforeEach(func() {
 		bbs = Bbs.New(etcdRunner.Adapter())
 		servedDirectory, err = ioutil.TempDir("", "file-server-test")
@@ -42,8 +51,7 @@ var _ = Describe("File-Server", func() {
 
 	Context("when file server exits", func() {
 		It("should remove its presence", func() {
-			session, err = cmdtest.Start(exec.Command(fileServerBinary, "-address", "localhost", "-directory", servedDirectory, "-port", strconv.Itoa(port), "-etcdMachines", etcdRunner.NodeURLS()[0], "-heartbeatInterval", "10s"))
-			time.Sleep(100 * time.Millisecond)
+			session = start("-address", "localhost", "-heartbeatInterval", "10s")
 
 			_, err = bbs.GetAvailableFileServer()
 			Ω(err).ShouldNot(HaveOccurred())
@@ -58,9 +66,7 @@ var _ = Describe("File-Server", func() {
 
 	Context("when it fails to maintain presence", func() {
 		BeforeEach(func() {
-			session, err = cmdtest.Start(exec.Command(fileServerBinary, "-address", "localhost", "-directory", servedDirectory, "-port", strconv.Itoa(port), "-etcdMachines", etcdRunner.NodeURLS()[0], "-heartbeatInterval", "1s"))
-			_, err := session.Wait(10 * time.Millisecond)
-			Ω(err).Should(HaveOccurred(), "Error: fileserver did not start")
+			session = start("-address", "localhost", "-heartbeatInterval", "1s")
 		})
 
 		It("should return an error", func() {
@@ -82,10 +88,7 @@ var _ = Describe("File-Server", func() {
 
 	Context("when started correctly", func() {
 		BeforeEach(func() {
-			session, err = cmdtest.Start(exec.Command(fileServerBinary, "-address", "localhost", "-directory", servedDirectory, "-port", strconv.Itoa(port), "-etcdMachines", etcdRunner.NodeURLS()[0]))
-			_, err := session.Wait(10 * time.Millisecond)
-			Ω(err).Should(HaveOccurred(), "Error: fileserver did not start")
-
+			session = start("-address", "localhost")
 			ioutil.WriteFile(filepath.Join(servedDirectory, "test"), []byte("hello"), os.ModePerm)
 		})
 
@@ -111,9 +114,7 @@ var _ = Describe("File-Server", func() {
 
 	Context("when an address is not specified", func() {
 		It("publishes its url properly", func() {
-			session, err = cmdtest.Start(exec.Command(fileServerBinary, "-directory", servedDirectory, "-port", strconv.Itoa(port), "-etcdMachines", etcdRunner.NodeURLS()[0]))
-			_, err := session.Wait(10 * time.Millisecond)
-			Ω(err).Should(HaveOccurred(), "Error: fileserver did not start")
+			session = start()
 
 			fileServerURL, err := bbs.GetAvailableFileServer()
 			Ω(err).ShouldNot(HaveOccurred())

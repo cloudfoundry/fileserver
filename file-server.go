@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	conf "github.com/cloudfoundry-incubator/file-server/config"
 	"github.com/cloudfoundry-incubator/file-server/handlers"
 	"github.com/cloudfoundry-incubator/file-server/router"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
@@ -20,30 +21,31 @@ import (
 	"time"
 )
 
-var address string
-var port int
-var directory string
-var logLevel string
-var etcdMachines string
-var heartbeatInterval time.Duration
-
-var presence *Bbs.Presence
+var (
+	presence *Bbs.Presence
+	config   *conf.Config
+)
 
 func init() {
-	flag.StringVar(&address, "address", "", "Specifies the address to bind to")
-	flag.IntVar(&port, "port", 8080, "Specifies the port of the file server")
-	flag.StringVar(&directory, "directory", "", "Specifies the directory to serve")
-	flag.StringVar(&logLevel, "logLevel", "info", "Logging level (none, fatal, error, warn, info, debug, debug1, debug2, all)")
-	flag.StringVar(&etcdMachines, "etcdMachines", "http://127.0.0.1:4001", "comma-separated list of etcd addresses (http://ip:port)")
-	flag.DurationVar(&heartbeatInterval, "heartbeatInterval", 60*time.Second, "the interval between heartbeats for maintaining presence")
+	config = conf.New()
+	flag.StringVar(&config.Address, "address", "", "Specifies the address to bind to")
+	flag.IntVar(&config.Port, "port", 8080, "Specifies the port of the file server")
+	flag.StringVar(&config.StaticDirectory, "staticDirectory", "", "Specifies the directory to serve")
+	flag.StringVar(&config.LogLevel, "logLevel", "info", "Logging level (none, fatal, error, warn, info, debug, debug1, debug2, all)")
+	flag.StringVar(&config.EtcdMachines, "etcdMachines", "http://127.0.0.1:4001", "comma-separated list of etcd addresses (http://ip:port)")
+	flag.DurationVar(&config.HeartbeatInterval, "heartbeatInterval", 60*time.Second, "the interval between heartbeats for maintaining presence")
+	flag.StringVar(&config.CCAddress, "ccAddress", "", "CloudController location")
+	flag.StringVar(&config.CCUsername, "ccUsername", "", "CloudController basic auth username")
+	flag.StringVar(&config.CCPassword, "ccPassword", "", "CloudController basic auth password")
+	flag.DurationVar(&config.CCJobPollingInterval, "ccJobPollingInterval", 5*time.Second, "the interval between job polling requests")
 }
 
 func main() {
 	flag.Parse()
 
-	l, err := steno.GetLogLevel(logLevel)
+	l, err := steno.GetLogLevel(config.LogLevel)
 	if err != nil {
-		log.Fatalf("Invalid loglevel: %s\n", logLevel)
+		log.Fatalf("Invalid loglevel: %s\n", config.LogLevel)
 	}
 
 	stenoConfig := steno.Config{
@@ -54,13 +56,16 @@ func main() {
 	steno.Init(&stenoConfig)
 	logger := steno.NewLogger("file-server")
 
-	if directory == "" {
-		logger.Error("-directory must be specified")
+	errs := config.Validate()
+	if len(errs) > 0 {
+		for _, err := range errs {
+			logger.Error(err.Error())
+		}
 		os.Exit(1)
 	}
 
 	etcdAdapter := etcdstoreadapter.NewETCDStoreAdapter(
-		strings.Split(etcdMachines, ","),
+		strings.Split(config.EtcdMachines, ","),
 		workerpool.NewWorkerPool(10),
 	)
 
@@ -70,15 +75,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	if address == "" {
-		address, err = localip.LocalIP()
+	if config.Address == "" {
+		config.Address, err = localip.LocalIP()
 		if err != nil {
 			logger.Errorf("Error obtaining local ip address: %s\n", err.Error())
 			os.Exit(1)
 		}
 	}
 
-	fileServerURL := fmt.Sprintf("http://%s:%d/", address, port)
+	fileServerURL := fmt.Sprintf("http://%s:%d/", config.Address, config.Port)
 	fileServerId, err := uuid.NewV4()
 	if err != nil {
 		logger.Error("Could not create a UUID")
@@ -86,7 +91,7 @@ func main() {
 	}
 
 	bbs := Bbs.New(etcdAdapter)
-	maintainingPresence, lostPresence, err := bbs.MaintainFileServerPresence(heartbeatInterval, fileServerURL, fileServerId.String())
+	maintainingPresence, lostPresence, err := bbs.MaintainFileServerPresence(config.HeartbeatInterval, fileServerURL, fileServerId.String())
 	if err != nil {
 		logger.Errorf("Failed to maintain presence: %s", err.Error())
 		os.Exit(1)
@@ -102,10 +107,10 @@ func main() {
 		}
 	}()
 
-	actions := handlers.Exports(directory)
+	actions := handlers.Exports(config)
 	r := router.New(actions)
 	logger.Infof("Serving files on %s", fileServerURL)
-	logger.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), r).Error())
+	logger.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", config.Port), r).Error())
 }
 
 func registerSignalHandler(maintainingPresence Bbs.PresenceInterface, logger *steno.Logger) {
