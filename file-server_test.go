@@ -29,7 +29,7 @@ var _ = Describe("File-Server", func() {
 	)
 
 	start := func(extras ...string) *cmdtest.Session {
-		args := append(extras, "-staticDirectory", servedDirectory, "-port", strconv.Itoa(port), "-etcdMachines", etcdRunner.NodeURLS()[0], "-ccAddress", "http://example.com/cc", "-ccUsername", "bob", "-ccPassword", "password")
+		args := append(extras, "-staticDirectory", servedDirectory, "-port", strconv.Itoa(port), "-etcdCluster", etcdRunner.NodeURLS()[0], "-ccAddress", "http://example.com/cc", "-ccUsername", "bob", "-ccPassword", "password")
 		session, err = cmdtest.Start(exec.Command(fileServerBinary, args...))
 		Ω(err).ShouldNot(HaveOccurred())
 		_, err := session.Wait(10 * time.Millisecond)

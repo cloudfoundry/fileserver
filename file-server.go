@@ -32,7 +32,7 @@ func init() {
 	flag.IntVar(&config.Port, "port", 8080, "Specifies the port of the file server")
 	flag.StringVar(&config.StaticDirectory, "staticDirectory", "", "Specifies the directory to serve")
 	flag.StringVar(&config.LogLevel, "logLevel", "info", "Logging level (none, fatal, error, warn, info, debug, debug1, debug2, all)")
-	flag.StringVar(&config.EtcdMachines, "etcdMachines", "http://127.0.0.1:4001", "comma-separated list of etcd addresses (http://ip:port)")
+	flag.StringVar(&config.EtcdCluster, "etcdCluster", "http://127.0.0.1:4001", "comma-separated list of etcd addresses (http://ip:port)")
 	flag.DurationVar(&config.HeartbeatInterval, "heartbeatInterval", 60*time.Second, "the interval between heartbeats for maintaining presence")
 	flag.StringVar(&config.CCAddress, "ccAddress", "", "CloudController location")
 	flag.StringVar(&config.CCUsername, "ccUsername", "", "CloudController basic auth username")
@@ -65,7 +65,7 @@ func main() {
 	}
 
 	etcdAdapter := etcdstoreadapter.NewETCDStoreAdapter(
-		strings.Split(config.EtcdMachines, ","),
+		strings.Split(config.EtcdCluster, ","),
 		workerpool.NewWorkerPool(10),
 	)
 
