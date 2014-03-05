@@ -9,7 +9,7 @@ import (
 
 func New(c *config.Config) router.Handlers {
 	return router.Handlers{
-		"static":         static.New(c.StaticDirectory),
-		"upload_droplet": upload_droplet.New(c.CCAddress, c.CCUsername, c.CCPassword, c.CCJobPollingInterval),
+		router.FS_STATIC:         static.New(c.StaticDirectory),
+		router.FS_UPLOAD_DROPLET: upload_droplet.New(c.CCAddress, c.CCUsername, c.CCPassword, c.CCJobPollingInterval),
 	}
 }
