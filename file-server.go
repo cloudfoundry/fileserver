@@ -30,7 +30,7 @@ func init() {
 	config = conf.New()
 	flag.StringVar(&config.Address, "address", "", "Specifies the address to bind to")
 	flag.IntVar(&config.Port, "port", 8080, "Specifies the port of the file server")
-	flag.StringVar(&config.StaticDirectory, "staticDirectory", "", "Specifies the directory to serve")
+	flag.StringVar(&config.StaticDirectory, "staticDirectory", "", "Specifies the directory to serve local static files from")
 	flag.StringVar(&config.LogLevel, "logLevel", "info", "Logging level (none, fatal, error, warn, info, debug, debug1, debug2, all)")
 	flag.StringVar(&config.EtcdCluster, "etcdCluster", "http://127.0.0.1:4001", "comma-separated list of etcd addresses (http://ip:port)")
 	flag.DurationVar(&config.HeartbeatInterval, "heartbeatInterval", 60*time.Second, "the interval between heartbeats for maintaining presence")

@@ -15,13 +15,6 @@ import (
 	"time"
 )
 
-const (
-	JOB_QUEUED   = "queued"
-	JOB_RUNNING  = "running"
-	JOB_FAILED   = "failed"
-	JOB_FINISHED = "finished"
-)
-
 func New(addr, username, password string, pollingInterval time.Duration, skipCertVerification bool, logger *steno.Logger) http.Handler {
 	return &dropletUploader{
 		addr:            addr,
@@ -56,6 +49,9 @@ func (h *dropletUploader) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		closeChan = closeNotifier.CloseNotify()
 	}
 
+	// cloud controller droplet upload url
+	// TODO: this should be refactored into runtime-schema/router if
+	// we continue to make cloud controller endpoints
 	url := urljoiner.Join(h.addr, "staging", "droplets", r.FormValue(":guid"), "upload?async=true")
 
 	h.logger.Infod(map[string]interface{}{
@@ -95,11 +91,31 @@ func (h *dropletUploader) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}, "droplet.upload.success")
 }
 
+func (h *dropletUploader) handleError(w http.ResponseWriter, r *http.Request, err error, status int) {
+	h.logger.Errord(map[string]interface{}{
+		"error": err.Error(),
+	}, "droplet.upload.failed")
+	w.WriteHeader(status)
+	w.Write([]byte(err.Error()))
+}
+
+// CLOUD CONTROLLER POLLING HELPERS
+// The following code is not specific to uploading droplets.
+// As soon as we talk to cloud controller in more than one place,
+// this code should be extracted into a library
+
+const (
+	JOB_QUEUED   = "queued"
+	JOB_RUNNING  = "running"
+	JOB_FAILED   = "failed"
+	JOB_FINISHED = "finished"
+)
+
 func (h *dropletUploader) poll(res *http.Response, closeChan <-chan bool) error {
 	ticker := time.NewTicker(h.pollingInterval)
 	defer ticker.Stop()
 
-	body, err := h.parsePollingRequest(res)
+	body, err := h.parsePollingResponse(res)
 	if err != nil {
 		return err
 	}
@@ -113,7 +129,7 @@ func (h *dropletUploader) poll(res *http.Response, closeChan <-chan bool) error 
 				if err != nil {
 					return err
 				}
-				body, err = h.parsePollingRequest(res)
+				body, err = h.parsePollingResponse(res)
 				if err != nil {
 					return err
 				}
@@ -139,7 +155,7 @@ type pollingResponseBody struct {
 	}
 }
 
-func (h *dropletUploader) parsePollingRequest(res *http.Response) (pollingResponseBody, error) {
+func (h *dropletUploader) parsePollingResponse(res *http.Response) (pollingResponseBody, error) {
 	body := pollingResponseBody{}
 	err := json.NewDecoder(res.Body).Decode(&body)
 	res.Body.Close()
@@ -155,6 +171,8 @@ func (h *dropletUploader) parsePollingRequest(res *http.Response) (pollingRespon
 	}
 	return body, nil
 }
+
+// FILE UPLOAD HELPERS
 
 func computeMultipartLength(formField string, fileName string) (int64, string, error) {
 	multipartBuffer := &bytes.Buffer{}
@@ -202,12 +220,4 @@ func streamingMultipartRequest(url string, contentLength int64, body io.Reader, 
 	uploadReq.ContentLength = contentLength + multipartLength
 
 	return uploadReq, nil
-}
-
-func (h *dropletUploader) handleError(w http.ResponseWriter, r *http.Request, err error, status int) {
-	h.logger.Errord(map[string]interface{}{
-		"error": err.Error(),
-	}, "droplet.upload.failed")
-	w.WriteHeader(status)
-	w.Write([]byte(err.Error()))
 }
