@@ -6,13 +6,10 @@ type TestingSink struct {
 
 var theGlobalTestSink *TestingSink
 
-func EnterTestMode(logLevel ...LogLevel) {
+func EnterTestMode() {
 	theGlobalTestSink = NewTestingSink()
 	stenoConfig := Config{
 		Sinks: []Sink{theGlobalTestSink},
-	}
-	if len(logLevel) > 0 {
-		stenoConfig.Level = logLevel[0]
 	}
 	Init(&stenoConfig)
 }

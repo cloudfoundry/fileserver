@@ -37,7 +37,8 @@ func init() {
 	flag.StringVar(&config.CCAddress, "ccAddress", "", "CloudController location")
 	flag.StringVar(&config.CCUsername, "ccUsername", "", "CloudController basic auth username")
 	flag.StringVar(&config.CCPassword, "ccPassword", "", "CloudController basic auth password")
-	flag.DurationVar(&config.CCJobPollingInterval, "ccJobPollingInterval", 5*time.Second, "the interval between job polling requests")
+	flag.DurationVar(&config.CCJobPollingInterval, "ccJobPollingInterval", 100*time.Millisecond, "the interval between job polling requests")
+	flag.BoolVar(&config.SkipCertVerify, "skipCertVerify", false, "Skip SSL certificate verification")
 }
 
 func main() {
@@ -107,7 +108,7 @@ func main() {
 		}
 	}()
 
-	actions := handlers.New(config)
+	actions := handlers.New(config, logger)
 	r, err := router.NewFileServerRoutes().Router(actions)
 	if err != nil {
 		logger.Errorf("Failed to build router: %s", err)

@@ -17,6 +17,8 @@ type Config struct {
 	CCUsername           string
 	CCPassword           string
 	CCJobPollingInterval time.Duration
+
+	SkipCertVerify bool
 }
 
 func New() *Config {

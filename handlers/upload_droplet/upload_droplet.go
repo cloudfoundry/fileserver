@@ -1,12 +1,17 @@
 package upload_droplet
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	steno "github.com/cloudfoundry/gosteno"
+	"github.com/cloudfoundry/gunk/http_client"
 	"github.com/cloudfoundry/gunk/urljoiner"
 	"io"
+	"io/ioutil"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -17,12 +22,14 @@ const (
 	JOB_FINISHED = "finished"
 )
 
-func New(addr, username, password string, pollingInterval time.Duration) http.Handler {
+func New(addr, username, password string, pollingInterval time.Duration, skipCertVerification bool, logger *steno.Logger) http.Handler {
 	return &dropletUploader{
 		addr:            addr,
 		username:        username,
 		password:        password,
 		pollingInterval: pollingInterval,
+		client:          http_client.New(skipCertVerification, time.Second*10),
+		logger:          logger,
 	}
 }
 
@@ -31,10 +38,17 @@ type dropletUploader struct {
 	username        string
 	password        string
 	pollingInterval time.Duration
+	client          *http.Client
+	logger          *steno.Logger
 }
 
 func (h *dropletUploader) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
+	if r.ContentLength <= 0 {
+		h.handleError(w, r, fmt.Errorf("Mssing Content Length"), http.StatusLengthRequired)
+		return
+	}
+
 	var closeChan <-chan bool
 
 	closeNotifier, ok := w.(http.CloseNotifier)
@@ -42,70 +56,50 @@ func (h *dropletUploader) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		closeChan = closeNotifier.CloseNotify()
 	}
 
-	pipeReader, pipeWriter := io.Pipe()
-	uploadReq, err := http.NewRequest("POST", h.uploadURL(r), pipeReader)
+	url := urljoiner.Join(h.addr, "staging", "droplets", r.FormValue(":guid"), "upload?async=true")
+
+	h.logger.Infod(map[string]interface{}{
+		"url":            url,
+		"content-length": r.ContentLength,
+	}, "droplet.upload.start")
+
+	uploadReq, err := streamingMultipartRequest(url, r.ContentLength, r.Body, "upload[droplet]", "droplet.tgz")
 	if err != nil {
-		handleError(w, r, err)
+		h.handleError(w, r, err, http.StatusInternalServerError)
 		return
 	}
-
 	uploadReq.SetBasicAuth(h.username, h.password)
 
-	done := make(chan error, 1)
-
-	writer := multipart.NewWriter(pipeWriter)
-	uploadReq.Header.Set("Content-Type", writer.FormDataContentType())
-	go func() {
-		defer pipeWriter.Close()
-		fileWriter, err := writer.CreateFormFile("upload[droplet]", "droplet.tgz")
-		if err != nil {
-			done <- err
-			return
-		}
-		_, err = io.Copy(fileWriter, r.Body)
-		if err != nil {
-			done <- err
-			return
-		}
-		done <- writer.Close()
-	}()
-
-	uploadResp, err := http.DefaultClient.Do(uploadReq)
+	uploadResp, err := h.client.Do(uploadReq)
 	if err != nil {
-		handleError(w, r, err)
+		h.handleError(w, r, err, http.StatusInternalServerError)
 		return
 	}
 
 	if uploadResp.StatusCode > 203 {
-		handleError(w, r, fmt.Errorf("Got status: %d", uploadResp.StatusCode))
-		return
-	}
-
-	err = <-done
-	if err != nil {
-		handleError(w, r, err)
+		respBody, _ := ioutil.ReadAll(uploadResp.Body)
+		h.handleError(w, r, fmt.Errorf("Got status: %d\n%s", uploadResp.StatusCode, string(respBody)), uploadResp.StatusCode)
 		return
 	}
 
 	err = h.poll(uploadResp, closeChan)
 	if err != nil {
-		handleError(w, r, err)
+		h.handleError(w, r, err, http.StatusInternalServerError)
 		return
 	}
 
 	w.WriteHeader(http.StatusCreated)
-}
-
-func (h *dropletUploader) uploadURL(r *http.Request) string {
-	appGuid := r.FormValue(":guid")
-	return urljoiner.Join(h.addr, "staging", "droplets", appGuid, "upload?async=true")
+	h.logger.Infod(map[string]interface{}{
+		"url":            url,
+		"content-length": uploadReq.ContentLength,
+	}, "droplet.upload.success")
 }
 
 func (h *dropletUploader) poll(res *http.Response, closeChan <-chan bool) error {
 	ticker := time.NewTicker(h.pollingInterval)
 	defer ticker.Stop()
 
-	body, err := parsePollingRequest(res)
+	body, err := h.parsePollingRequest(res)
 	if err != nil {
 		return err
 	}
@@ -115,11 +109,11 @@ func (h *dropletUploader) poll(res *http.Response, closeChan <-chan bool) error 
 		case <-ticker.C:
 			switch body.Entity.Status {
 			case JOB_QUEUED, JOB_RUNNING:
-				res, err := http.Get(urljoiner.Join(h.addr, body.Metadata.Url))
+				res, err := h.client.Get(body.Metadata.Url)
 				if err != nil {
 					return err
 				}
-				body, err = parsePollingRequest(res)
+				body, err = h.parsePollingRequest(res)
 				if err != nil {
 					return err
 				}
@@ -145,14 +139,75 @@ type pollingResponseBody struct {
 	}
 }
 
-func parsePollingRequest(res *http.Response) (pollingResponseBody, error) {
+func (h *dropletUploader) parsePollingRequest(res *http.Response) (pollingResponseBody, error) {
 	body := pollingResponseBody{}
 	err := json.NewDecoder(res.Body).Decode(&body)
 	res.Body.Close()
-	return body, err
+	if err != nil {
+		return body, err
+	}
+	u, err := url.Parse(body.Metadata.Url)
+	if err != nil {
+		return body, err
+	}
+	if u.Host == "" {
+		body.Metadata.Url = urljoiner.Join(h.addr, body.Metadata.Url)
+	}
+	return body, nil
 }
 
-func handleError(w http.ResponseWriter, r *http.Request, err error) {
-	w.WriteHeader(http.StatusInternalServerError)
+func computeMultipartLength(formField string, fileName string) (int64, string, error) {
+	multipartBuffer := &bytes.Buffer{}
+	multipartWriter := multipart.NewWriter(multipartBuffer)
+	_, err := multipartWriter.CreateFormFile(formField, fileName)
+	multipartWriter.Close()
+
+	return int64(multipartBuffer.Len()), multipartWriter.Boundary(), err
+}
+
+func streamingMultipartRequest(url string, contentLength int64, body io.Reader, formField string, fileName string) (*http.Request, error) {
+	pipeReader, pipeWriter := io.Pipe()
+
+	multipartLength, multipartBoundary, err := computeMultipartLength(formField, fileName)
+	if err != nil {
+		return nil, err
+	}
+
+	multipartWriter := multipart.NewWriter(pipeWriter)
+	multipartWriter.SetBoundary(multipartBoundary)
+	go func() {
+		var err error
+		defer func() {
+			pipeWriter.CloseWithError(err)
+		}()
+
+		filePartWriter, err := multipartWriter.CreateFormFile(formField, fileName)
+		if err != nil {
+			return
+		}
+
+		_, err = io.Copy(filePartWriter, body)
+		if err != nil {
+			return
+		}
+
+		err = multipartWriter.Close()
+	}()
+
+	uploadReq, err := http.NewRequest("POST", url, pipeReader)
+	if err != nil {
+		return nil, err
+	}
+	uploadReq.Header.Set("Content-Type", multipartWriter.FormDataContentType())
+	uploadReq.ContentLength = contentLength + multipartLength
+
+	return uploadReq, nil
+}
+
+func (h *dropletUploader) handleError(w http.ResponseWriter, r *http.Request, err error, status int) {
+	h.logger.Errord(map[string]interface{}{
+		"error": err.Error(),
+	}, "droplet.upload.failed")
+	w.WriteHeader(status)
 	w.Write([]byte(err.Error()))
 }

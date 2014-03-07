@@ -6,39 +6,16 @@ import (
 	"github.com/cloudfoundry-incubator/file-server/config"
 	"github.com/cloudfoundry-incubator/file-server/handlers"
 	"github.com/cloudfoundry-incubator/runtime-schema/router"
+	"github.com/cloudfoundry/gosteno"
 	ts "github.com/cloudfoundry/gunk/test_server"
+	"github.com/cloudfoundry/gunk/urljoiner"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"path"
 	"time"
 )
-
-func VerifyPollingRequest(jobGuid, status string, timeClicker chan time.Time) http.HandlerFunc {
-	return ts.CombineHandlers(
-		ts.VerifyRequest("GET", path.Join("/v2/jobs/", jobGuid)),
-		ts.Respond(http.StatusOK, PollingResponseBody(jobGuid, status)),
-		func(w http.ResponseWriter, r *http.Request) {
-			timeClicker <- time.Now()
-		},
-	)
-}
-
-func PollingResponseBody(jobGuid, status string) string {
-	return fmt.Sprintf(`
-				{
-					"metadata":{
-						"guid": "%s",
-						"url": "/v2/jobs/%s"
-					},
-					"entity": {
-						"status": "%s"
-					}
-				}
-			`, jobGuid, jobGuid, status)
-}
 
 var _ = Describe("UploadDroplet", func() {
 	var (
@@ -48,8 +25,37 @@ var _ = Describe("UploadDroplet", func() {
 		uploadedBytes       []byte
 		uploadedFileName    string
 
+		incomingRequest  *http.Request
 		outgoingResponse *httptest.ResponseRecorder
 	)
+
+	PollingResponseBody := func(jobGuid, status string, fullUrl bool) string {
+		url := urljoiner.Join("/v2/jobs", jobGuid)
+		if fullUrl {
+			url = urljoiner.Join(fakeCloudController.URL(), url)
+		}
+		return fmt.Sprintf(`
+				{
+					"metadata":{
+						"guid": "%s",
+						"url": "%s"
+					},
+					"entity": {
+						"status": "%s"
+					}
+				}
+			`, jobGuid, url, status)
+	}
+
+	VerifyPollingRequest := func(jobGuid, status string, timeClicker chan time.Time) http.HandlerFunc {
+		return ts.CombineHandlers(
+			ts.VerifyRequest("GET", urljoiner.Join("/v2/jobs/", jobGuid)),
+			ts.Respond(http.StatusOK, PollingResponseBody(jobGuid, status, false)),
+			func(w http.ResponseWriter, r *http.Request) {
+				timeClicker <- time.Now()
+			},
+		)
+	}
 
 	BeforeEach(func() {
 		uploadedBytes = nil
@@ -67,8 +73,14 @@ var _ = Describe("UploadDroplet", func() {
 				uploadedBytes, err = ioutil.ReadAll(file)
 				Ω(err).ShouldNot(HaveOccurred())
 				uploadedFileName = fileHeader.Filename
+				Ω(r.ContentLength).Should(BeNumerically(">", len(uploadedBytes)))
 			},
 		))
+
+		var err error
+		buffer := bytes.NewBufferString("the file I'm uploading")
+		incomingRequest, err = http.NewRequest("POST", "http://file-server.com/droplet/app-guid", buffer)
+		Ω(err).ShouldNot(HaveOccurred())
 	})
 
 	JustBeforeEach(func(done Done) {
@@ -78,11 +90,8 @@ var _ = Describe("UploadDroplet", func() {
 		conf.CCPassword = "password"
 		conf.CCJobPollingInterval = 10 * time.Millisecond
 
-		r, err := router.NewFileServerRoutes().Router(handlers.New(conf))
-		Ω(err).ShouldNot(HaveOccurred())
-
-		buffer := bytes.NewBufferString("the file I'm uploading")
-		incomingRequest, err := http.NewRequest("POST", "http://file-server.com/droplet/app-guid", buffer)
+		logger := gosteno.NewLogger("")
+		r, err := router.NewFileServerRoutes().Router(handlers.New(conf, logger))
 		Ω(err).ShouldNot(HaveOccurred())
 
 		outgoingResponse = httptest.NewRecorder()
@@ -103,7 +112,7 @@ var _ = Describe("UploadDroplet", func() {
 
 		BeforeEach(func() {
 			postStatusCode = http.StatusCreated
-			postResponseBody = PollingResponseBody("my-job-guid", "queued")
+			postResponseBody = PollingResponseBody("my-job-guid", "queued", true)
 			timeClicker = make(chan time.Time, 3)
 			fakeCloudController.Append(
 				VerifyPollingRequest("my-job-guid", "queued", timeClicker),
@@ -140,7 +149,7 @@ var _ = Describe("UploadDroplet", func() {
 
 		BeforeEach(func() {
 			postStatusCode = http.StatusCreated
-			postResponseBody = PollingResponseBody("my-job-guid", "queued")
+			postResponseBody = PollingResponseBody("my-job-guid", "queued", true)
 			timeClicker = make(chan time.Time, 3)
 			fakeCloudController.Append(
 				VerifyPollingRequest("my-job-guid", "queued", timeClicker),
@@ -159,7 +168,17 @@ var _ = Describe("UploadDroplet", func() {
 		})
 	})
 
-	Context("when CC 500s", func() {
+	Context("uploading the file, when the request is missing content length", func() {
+		BeforeEach(func() {
+			incomingRequest.ContentLength = -1
+		})
+
+		It("responds with 411", func() {
+			Ω(outgoingResponse.Code).Should(Equal(http.StatusLengthRequired))
+		})
+	})
+
+	Context("when CC returns a non-succesful status code", func() {
 		BeforeEach(func() {
 			postStatusCode = 403
 			postResponseBody = ""
@@ -169,8 +188,8 @@ var _ = Describe("UploadDroplet", func() {
 			Ω(fakeCloudController.ReceivedRequests).Should(HaveLen(1))
 		})
 
-		It("should 500", func() {
-			Ω(outgoingResponse.Code).Should(Equal(http.StatusInternalServerError))
+		It("should pass along that status code", func() {
+			Ω(outgoingResponse.Code).Should(Equal(403))
 
 			data, err := ioutil.ReadAll(outgoingResponse.Body)
 			Ω(err).ShouldNot(HaveOccurred())

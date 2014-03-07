@@ -3,6 +3,9 @@ package main_test
 import (
 	"fmt"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
+	"github.com/cloudfoundry-incubator/runtime-schema/router"
+	"github.com/cloudfoundry/gunk/runner_support"
+	"github.com/cloudfoundry/gunk/urljoiner"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/config"
 	. "github.com/onsi/gomega"
@@ -16,8 +19,14 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 )
+
+var ccAddress = os.Getenv("CC_ADDRESS")
+var ccUsername = os.Getenv("CC_USERNAME")
+var ccPassword = os.Getenv("CC_PASSWORD")
+var appGuid = os.Getenv("CC_APPGUID")
 
 var _ = Describe("File-Server", func() {
 	var (
@@ -29,8 +38,8 @@ var _ = Describe("File-Server", func() {
 	)
 
 	start := func(extras ...string) *cmdtest.Session {
-		args := append(extras, "-staticDirectory", servedDirectory, "-port", strconv.Itoa(port), "-etcdCluster", etcdRunner.NodeURLS()[0], "-ccAddress", "http://example.com/cc", "-ccUsername", "bob", "-ccPassword", "password")
-		session, err = cmdtest.Start(exec.Command(fileServerBinary, args...))
+		args := append(extras, "-staticDirectory", servedDirectory, "-port", strconv.Itoa(port), "-etcdCluster", etcdRunner.NodeURLS()[0], "-ccAddress", ccAddress, "-ccUsername", ccUsername, "-ccPassword", ccPassword, "-skipCertVerify")
+		session, err = cmdtest.StartWrapped(exec.Command(fileServerBinary, args...), runner_support.TeeToGinkgoWriter, runner_support.TeeToGinkgoWriter)
 		Ω(err).ShouldNot(HaveOccurred())
 		_, err := session.Wait(10 * time.Millisecond)
 		Ω(err).Should(HaveOccurred(), "Error: fileserver did not start")
@@ -38,6 +47,12 @@ var _ = Describe("File-Server", func() {
 	}
 
 	BeforeEach(func() {
+		if ccAddress == "" {
+			ccAddress = "http://example.com"
+			ccUsername = "username"
+			ccPassword = "password"
+		}
+
 		bbs = Bbs.New(etcdRunner.Adapter())
 		servedDirectory, err = ioutil.TempDir("", "file-server-test")
 		Ω(err).ShouldNot(HaveOccurred())
@@ -128,4 +143,46 @@ var _ = Describe("File-Server", func() {
 			Ω(host).ShouldNot(Equal(""))
 		})
 	})
+
+	if appGuid != "" {
+		Describe("uploading a file", func() {
+			var tempFile string
+			BeforeEach(func() {
+				f, err := ioutil.TempFile("", "upload.tmp")
+				Ω(err).ShouldNot(HaveOccurred())
+				tempFile = f.Name()
+				f.Close()
+			})
+
+			It("should upload the file...", func() {
+				session = start("-address", "localhost")
+
+				content := strings.Repeat("a big file", 10*1024)
+				err := ioutil.WriteFile(tempFile, []byte(content), 0777)
+				Ω(err).ShouldNot(HaveOccurred())
+
+				route, ok := router.NewFileServerRoutes().RouteForHandler(router.FS_UPLOAD_DROPLET)
+				Ω(ok).Should(BeTrue())
+
+				path, err := route.PathWithParams(map[string]string{"guid": appGuid})
+				Ω(err).ShouldNot(HaveOccurred())
+				url := urljoiner.Join(fmt.Sprintf("http://localhost:%d", port), path)
+
+				file, err := os.Open(tempFile)
+				Ω(err).ShouldNot(HaveOccurred())
+
+				fileStat, err := file.Stat()
+				Ω(err).ShouldNot(HaveOccurred())
+
+				postRequest, err := http.NewRequest("POST", url, file)
+				Ω(err).ShouldNot(HaveOccurred())
+				postRequest.ContentLength = fileStat.Size()
+				postRequest.Header.Set("Content-Type", "application/octet-stream")
+
+				resp, err := http.DefaultClient.Do(postRequest)
+				Ω(err).ShouldNot(HaveOccurred())
+				Ω(resp.StatusCode).Should(Equal(http.StatusCreated))
+			})
+		})
+	}
 })
