@@ -7,8 +7,6 @@ import (
 	. "github.com/onsi/gomega/format"
 )
 
-//recursive struct
-
 type StringAlias string
 type ByteAlias []byte
 type IntAlias int
@@ -29,26 +27,6 @@ type ComplexStruct struct {
 	Strings      []string
 	SimpleThings []*SimpleStruct
 	DataMaps     map[int]ByteAlias
-}
-
-type SecretiveStruct struct {
-	boolValue      bool
-	intValue       int
-	uintValue      uint
-	uintptrValue   uintptr
-	floatValue     float32
-	complexValue   complex64
-	chanValue      chan bool
-	funcValue      func()
-	pointerValue   *int
-	sliceValue     []string
-	byteSliceValue []byte
-	stringValue    string
-	arrValue       [3]int
-	byteArrValue   [3]byte
-	mapValue       map[string]int
-	structValue    AStruct
-	interfaceValue interface{}
 }
 
 var _ = Describe("Format", func() {
@@ -176,13 +154,6 @@ var _ = Describe("Format", func() {
 				w := [3]string{"Jed Bartlet", "Toby Ziegler", "CJ Cregg"}
 				Ω(Object(w, 1)).Should(match("[3]string", `["Jed Bartlet", "Toby Ziegler", "CJ Cregg"]`))
 			})
-
-			Context("with byte arrays", func() {
-				It("should give the type and format values correctly", func() {
-					w := [3]byte{17, 28, 19}
-					Ω(Object(w, 1)).Should(match("[3]uint8", `[17, 28, 19]`))
-				})
-			})
 		})
 
 		Describe("formatting slices", func() {
@@ -238,7 +209,7 @@ var _ = Describe("Format", func() {
 					secret:      1983,
 				}
 
-				Ω(Object(s, 1)).Should(match("format_test.SimpleStruct", `{Name: "Oswald", Enumeration: 17, Veritas: true, Data: "datum", secret: 1983}`))
+				Ω(Object(s, 1)).Should(match("format_test.SimpleStruct", `{Name: "Oswald", Enumeration: 17, Veritas: true, Data: "datum"}`))
 			})
 
 			Context("when the struct contains long entries", func() {
@@ -256,7 +227,6 @@ var _ = Describe("Format", func() {
         Enumeration: 2021,
         Veritas: true,
         Data: "wizard",
-        secret: 3,
     }`))
 				})
 			})
@@ -300,13 +270,12 @@ var _ = Describe("Format", func() {
 				expected := `{
         Strings: ["lots", "of", "short", "strings"],
         SimpleThings: [
-            {Name: "short", Enumeration: 7, Veritas: true, Data: "succinct", secret: 17},
+            {Name: "short", Enumeration: 7, Veritas: true, Data: "succinct"},
             {
                 Name: "something longer",
                 Enumeration: 427,
                 Veritas: true,
                 Data: "designed to wrap around nicely",
-                secret: 30,
             },
         ],
         DataMaps: {
@@ -316,75 +285,6 @@ var _ = Describe("Format", func() {
     }`
 				Ω(Object(s, 1)).Should(match("format_test.ComplexStruct", expected))
 			})
-		})
-	})
-
-	Describe("Handling unexported fields in structs", func() {
-		It("should handle all the various types correctly", func() {
-			a := int(5)
-			s := SecretiveStruct{
-				boolValue:      true,
-				intValue:       3,
-				uintValue:      4,
-				uintptrValue:   5,
-				floatValue:     6.0,
-				complexValue:   complex(5.0, 3.0),
-				chanValue:      make(chan bool, 2),
-				funcValue:      func() {},
-				pointerValue:   &a,
-				sliceValue:     []string{"string", "slice"},
-				byteSliceValue: []byte("bytes"),
-				stringValue:    "a string",
-				arrValue:       [3]int{11, 12, 13},
-				byteArrValue:   [3]byte{17, 20, 32},
-				mapValue:       map[string]int{"a key": 20, "b key": 30},
-				structValue:    AStruct{"exported"},
-				interfaceValue: map[string]int{"a key": 17},
-			}
-
-			expected := fmt.Sprintf(`{
-        boolValue: true,
-        intValue: 3,
-        uintValue: 4,
-        uintptrValue: 0x5,
-        floatValue: 6,
-        complexValue: (5+3i),
-        chanValue: %p,
-        funcValue: %p,
-        pointerValue: 5,
-        sliceValue: ["string", "slice"],
-        byteSliceValue: "bytes",
-        stringValue: "a string",
-        arrValue: [11, 12, 13],
-        byteArrValue: [17, 20, 32],
-        mapValue: {"a key": 20, "b key": 30},
-        structValue: {Exported: "exported"},
-        interfaceValue: {"a key": 17},
-    }`, s.chanValue, s.funcValue)
-
-			Ω(Object(s, 1)).Should(match("format_test.SecretiveStruct", expected))
-		})
-	})
-
-	Describe("Handling interfaces", func() {
-		It("should unpack the interface", func() {
-			outerHash := map[string]interface{}{}
-			innerHash := map[string]int{}
-
-			innerHash["inner"] = 3
-			outerHash["integer"] = 2
-			outerHash["map"] = innerHash
-
-			Ω(Object(outerHash, 1)).Should(match("map[string]interface {} | len:2", `{"integer": 2, "map": {"inner": 3}}`))
-		})
-	})
-
-	Describe("Handling recursive things", func() {
-		It("should not go crazy...", func() {
-			m := map[string]interface{}{}
-			m["integer"] = 2
-			m["map"] = m
-			Ω(Object(m, 1)).Should(ContainSubstring("Too deep for me, man..."))
 		})
 	})
 })

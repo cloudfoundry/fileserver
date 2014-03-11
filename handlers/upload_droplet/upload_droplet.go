@@ -21,7 +21,7 @@ func New(addr, username, password string, pollingInterval time.Duration, skipCer
 		username:        username,
 		password:        password,
 		pollingInterval: pollingInterval,
-		client:          http_client.New(skipCertVerification, time.Second*10),
+		client:          http_client.New(skipCertVerification),
 		logger:          logger,
 	}
 }

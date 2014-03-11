@@ -10,7 +10,7 @@ func (c *Client) Set(key string, value string, ttl uint64) (*Response, error) {
 		return nil, err
 	}
 
-	return raw.toResponse()
+	return raw.Unmarshal()
 }
 
 // Set sets the given key to a directory.
@@ -23,7 +23,7 @@ func (c *Client) SetDir(key string, ttl uint64) (*Response, error) {
 		return nil, err
 	}
 
-	return raw.toResponse()
+	return raw.Unmarshal()
 }
 
 // CreateDir creates a directory. It succeeds only if
@@ -35,7 +35,7 @@ func (c *Client) CreateDir(key string, ttl uint64) (*Response, error) {
 		return nil, err
 	}
 
-	return raw.toResponse()
+	return raw.Unmarshal()
 }
 
 // UpdateDir updates the given directory. It succeeds only if the
@@ -47,7 +47,7 @@ func (c *Client) UpdateDir(key string, ttl uint64) (*Response, error) {
 		return nil, err
 	}
 
-	return raw.toResponse()
+	return raw.Unmarshal()
 }
 
 // Create creates a file with the given value under the given key.  It succeeds
@@ -59,7 +59,7 @@ func (c *Client) Create(key string, value string, ttl uint64) (*Response, error)
 		return nil, err
 	}
 
-	return raw.toResponse()
+	return raw.Unmarshal()
 }
 
 // Update updates the given key to the given value.  It succeeds only if the
@@ -71,11 +71,11 @@ func (c *Client) Update(key string, value string, ttl uint64) (*Response, error)
 		return nil, err
 	}
 
-	return raw.toResponse()
+	return raw.Unmarshal()
 }
 
 func (c *Client) RawUpdateDir(key string, ttl uint64) (*RawResponse, error) {
-	ops := options{
+	ops := Options{
 		"prevExist": true,
 		"dir":       true,
 	}
@@ -84,7 +84,7 @@ func (c *Client) RawUpdateDir(key string, ttl uint64) (*RawResponse, error) {
 }
 
 func (c *Client) RawCreateDir(key string, ttl uint64) (*RawResponse, error) {
-	ops := options{
+	ops := Options{
 		"prevExist": false,
 		"dir":       true,
 	}
@@ -97,7 +97,7 @@ func (c *Client) RawSet(key string, value string, ttl uint64) (*RawResponse, err
 }
 
 func (c *Client) RawSetDir(key string, ttl uint64) (*RawResponse, error) {
-	ops := options{
+	ops := Options{
 		"dir": true,
 	}
 
@@ -105,7 +105,7 @@ func (c *Client) RawSetDir(key string, ttl uint64) (*RawResponse, error) {
 }
 
 func (c *Client) RawUpdate(key string, value string, ttl uint64) (*RawResponse, error) {
-	ops := options{
+	ops := Options{
 		"prevExist": true,
 	}
 
@@ -113,7 +113,7 @@ func (c *Client) RawUpdate(key string, value string, ttl uint64) (*RawResponse, 
 }
 
 func (c *Client) RawCreate(key string, value string, ttl uint64) (*RawResponse, error) {
-	ops := options{
+	ops := Options{
 		"prevExist": false,
 	}
 

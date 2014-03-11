@@ -8,7 +8,6 @@ import (
 
 var Indent = "    "
 var longFormThreshold = 20
-var maxIndent = uint(20)
 
 func Message(actual interface{}, message string, expected ...interface{}) string {
 	if len(expected) == 0 {
@@ -20,8 +19,7 @@ func Message(actual interface{}, message string, expected ...interface{}) string
 
 func Object(object interface{}, indentation uint) string {
 	indent := strings.Repeat(Indent, int(indentation))
-	value := reflect.ValueOf(object)
-	return fmt.Sprintf("%s<%s>: %s", indent, formatType(object), formatValue(value, indentation))
+	return fmt.Sprintf("%s<%s>: %s", indent, formatType(object), formatValue(object, indentation))
 }
 
 func IndentString(s string, indentation uint) string {
@@ -60,53 +58,42 @@ func formatType(object interface{}) string {
 	}
 }
 
-func formatValue(value reflect.Value, indentation uint) string {
-	if indentation > maxIndent {
-		return "Too deep for me, man..."
-	}
-	if isNilValue(value) {
+func formatValue(object interface{}, indentation uint) string {
+	if isNil(object) {
 		return "nil"
 	}
-	switch value.Kind() {
+	t := reflect.TypeOf(object)
+	switch t.Kind() {
 	case reflect.Bool:
-		return fmt.Sprintf("%v", value.Bool())
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return fmt.Sprintf("%v", value.Int())
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return fmt.Sprintf("%v", value.Uint())
+		return fmt.Sprintf("%v", object)
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return fmt.Sprintf("%v", object)
 	case reflect.Uintptr:
-		return fmt.Sprintf("0x%x", value.Uint())
-	case reflect.Float32, reflect.Float64:
-		return fmt.Sprintf("%v", value.Float())
-	case reflect.Complex64, reflect.Complex128:
-		return fmt.Sprintf("%v", value.Complex())
+		return fmt.Sprintf("%#v", object)
+	case reflect.Float32, reflect.Float64, reflect.Complex64, reflect.Complex128:
+		return fmt.Sprintf("%v", object)
 	case reflect.Chan:
-		return fmt.Sprintf("0x%x", value.Pointer())
+		return fmt.Sprintf("%v", object)
 	case reflect.Func:
-		return fmt.Sprintf("0x%x", value.Pointer())
+		return fmt.Sprintf("%v", object)
 	case reflect.Ptr:
-		return formatValue(value.Elem(), indentation)
+		v := reflect.ValueOf(object)
+		return formatValue(v.Elem().Interface(), indentation)
 	case reflect.Slice:
-		if value.Type().Elem().Kind() == reflect.Uint8 {
-			return formatString(value.Bytes(), indentation)
+		if t.Elem().Kind() == reflect.Uint8 {
+			return formatString(object, indentation)
 		}
-		return formatSlice(value, indentation)
+		return formatSlice(object, indentation)
 	case reflect.String:
-		return formatString(value.String(), indentation)
+		return formatString(object, indentation)
 	case reflect.Array:
-		return formatSlice(value, indentation)
+		return formatSlice(object, indentation)
 	case reflect.Map:
-		return formatMap(value, indentation)
+		return formatMap(object, indentation)
 	case reflect.Struct:
-		return formatStruct(value, indentation)
-	case reflect.Interface:
-		return formatValue(value.Elem(), indentation)
+		return formatStruct(object, indentation)
 	default:
-		if value.CanInterface() {
-			return fmt.Sprintf("%#v", value.Interface())
-		} else {
-			return fmt.Sprintf("%#v", value)
-		}
+		return fmt.Sprintf("%#v", object)
 	}
 }
 
@@ -132,12 +119,14 @@ func formatString(object interface{}, indentation uint) string {
 	}
 }
 
-func formatSlice(v reflect.Value, indentation uint) string {
+func formatSlice(object interface{}, indentation uint) string {
+	v := reflect.ValueOf(object)
+
 	l := v.Len()
 	result := make([]string, l)
 	longest := 0
 	for i := 0; i < l; i++ {
-		result[i] = formatValue(v.Index(i), indentation+1)
+		result[i] = formatValue(v.Index(i).Interface(), indentation+1)
 		if len(result[i]) > longest {
 			longest = len(result[i])
 		}
@@ -151,14 +140,16 @@ func formatSlice(v reflect.Value, indentation uint) string {
 	}
 }
 
-func formatMap(v reflect.Value, indentation uint) string {
+func formatMap(object interface{}, indentation uint) string {
+	v := reflect.ValueOf(object)
+
 	l := v.Len()
 	result := make([]string, l)
 
 	longest := 0
 	for i, key := range v.MapKeys() {
 		value := v.MapIndex(key)
-		result[i] = fmt.Sprintf("%s: %s", formatValue(key, 0), formatValue(value, indentation+1))
+		result[i] = fmt.Sprintf("%s: %s", formatValue(key.Interface(), 0), formatValue(value.Interface(), indentation+1))
 		if len(result[i]) > longest {
 			longest = len(result[i])
 		}
@@ -172,19 +163,22 @@ func formatMap(v reflect.Value, indentation uint) string {
 	}
 }
 
-func formatStruct(v reflect.Value, indentation uint) string {
-	t := v.Type()
+func formatStruct(object interface{}, indentation uint) string {
+	v := reflect.ValueOf(object)
+	t := reflect.TypeOf(object)
 
 	l := v.NumField()
 	result := []string{}
 	longest := 0
 	for i := 0; i < l; i++ {
 		structField := t.Field(i)
-		fieldEntry := v.Field(i)
-		representation := fmt.Sprintf("%s: %s", structField.Name, formatValue(fieldEntry, indentation+1))
-		result = append(result, representation)
-		if len(representation) > longest {
-			longest = len(representation)
+		if structField.PkgPath == "" { //implies the field is exported
+			fieldEntry := v.Field(i).Interface()
+			representation := fmt.Sprintf("%s: %s", structField.Name, formatValue(fieldEntry, indentation+1))
+			result = append(result, representation)
+			if len(representation) > longest {
+				longest = len(representation)
+			}
 		}
 	}
 	if longest > longFormThreshold {
@@ -193,17 +187,6 @@ func formatStruct(v reflect.Value, indentation uint) string {
 	} else {
 		return fmt.Sprintf("{%s}", strings.Join(result, ", "))
 	}
-}
-
-func isNilValue(a reflect.Value) bool {
-	switch a.Kind() {
-	case reflect.Invalid:
-		return true
-	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice:
-		return a.IsNil()
-	}
-
-	return false
 }
 
 func isNil(a interface{}) bool {
