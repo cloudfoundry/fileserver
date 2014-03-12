@@ -1,4 +1,4 @@
-file-server
+File Server
 ===========
 
 Bob Loblaw's file server
