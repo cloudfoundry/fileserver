@@ -1,5 +1,5 @@
 {
-	"ImportPath": "github.com/cloudfoundry-incubator/file_server",
+	"ImportPath": "github.com/cloudfoundry-incubator/file-server",
 	"GoVersion": "go1.2.1",
 	"Packages": [
 		"./..."

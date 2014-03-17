@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
-	conf "github.com/cloudfoundry-incubator/file_server/config"
-	"github.com/cloudfoundry-incubator/file_server/handlers"
+	conf "github.com/cloudfoundry-incubator/file-server/config"
+	"github.com/cloudfoundry-incubator/file-server/handlers"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/router"
 	steno "github.com/cloudfoundry/gosteno"

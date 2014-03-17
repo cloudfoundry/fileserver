@@ -1,9 +1,9 @@
 package handlers
 
 import (
-	"github.com/cloudfoundry-incubator/file_server/config"
-	"github.com/cloudfoundry-incubator/file_server/handlers/static"
-	"github.com/cloudfoundry-incubator/file_server/handlers/upload_droplet"
+	"github.com/cloudfoundry-incubator/file-server/config"
+	"github.com/cloudfoundry-incubator/file-server/handlers/static"
+	"github.com/cloudfoundry-incubator/file-server/handlers/upload_droplet"
 	"github.com/cloudfoundry-incubator/runtime-schema/router"
 	steno "github.com/cloudfoundry/gosteno"
 )
