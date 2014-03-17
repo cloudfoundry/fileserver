@@ -28,7 +28,7 @@ var ccUsername = os.Getenv("CC_USERNAME")
 var ccPassword = os.Getenv("CC_PASSWORD")
 var appGuid = os.Getenv("CC_APPGUID")
 
-var _ = Describe("File-Server", func() {
+var _ = Describe("File_server", func() {
 	var (
 		bbs             *Bbs.BBS
 		port            int
@@ -54,7 +54,7 @@ var _ = Describe("File-Server", func() {
 		}
 
 		bbs = Bbs.New(etcdRunner.Adapter())
-		servedDirectory, err = ioutil.TempDir("", "file-server-test")
+		servedDirectory, err = ioutil.TempDir("", "file_server-test")
 		Ω(err).ShouldNot(HaveOccurred())
 		port = 8182 + config.GinkgoConfig.ParallelNode
 	})

@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
-	conf "github.com/cloudfoundry-incubator/file-server/config"
-	"github.com/cloudfoundry-incubator/file-server/handlers"
+	conf "github.com/cloudfoundry-incubator/file_server/config"
+	"github.com/cloudfoundry-incubator/file_server/handlers"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/router"
 	steno "github.com/cloudfoundry/gosteno"
@@ -55,7 +55,7 @@ func main() {
 	}
 
 	steno.Init(&stenoConfig)
-	logger := steno.NewLogger("file-server")
+	logger := steno.NewLogger("file_server")
 
 	errs := config.Validate()
 	if len(errs) > 0 {
@@ -103,7 +103,7 @@ func main() {
 	go func() {
 		select {
 		case <-lostPresence:
-			logger.Error("file-server.maintaining-presence.failed")
+			logger.Error("file_server.maintaining-presence.failed")
 			os.Exit(1)
 		}
 	}()

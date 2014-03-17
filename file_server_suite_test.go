@@ -20,7 +20,7 @@ func TestFileServer(t *testing.T) {
 	RegisterFailHandler(Fail)
 
 	var err error
-	fileServerBinary, err = cmdtest.Build("github.com/cloudfoundry-incubator/file-server")
+	fileServerBinary, err = cmdtest.Build("github.com/cloudfoundry-incubator/file_server")
 	if err != nil {
 		panic(err.Error())
 	}

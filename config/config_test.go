@@ -2,7 +2,7 @@ package config_test
 
 import (
 	"errors"
-	. "github.com/cloudfoundry-incubator/file-server/config"
+	. "github.com/cloudfoundry-incubator/file_server/config"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

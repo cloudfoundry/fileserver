@@ -3,8 +3,8 @@ package upload_droplet_test
 import (
 	"bytes"
 	"fmt"
-	"github.com/cloudfoundry-incubator/file-server/config"
-	"github.com/cloudfoundry-incubator/file-server/handlers"
+	"github.com/cloudfoundry-incubator/file_server/config"
+	"github.com/cloudfoundry-incubator/file_server/handlers"
 	"github.com/cloudfoundry-incubator/runtime-schema/router"
 	"github.com/cloudfoundry/gosteno"
 	ts "github.com/cloudfoundry/gunk/test_server"
@@ -79,7 +79,7 @@ var _ = Describe("UploadDroplet", func() {
 
 		var err error
 		buffer := bytes.NewBufferString("the file I'm uploading")
-		incomingRequest, err = http.NewRequest("POST", "http://file-server.com/droplet/app-guid", buffer)
+		incomingRequest, err = http.NewRequest("POST", "http://file_server.com/droplet/app-guid", buffer)
 		Ω(err).ShouldNot(HaveOccurred())
 	})
 
