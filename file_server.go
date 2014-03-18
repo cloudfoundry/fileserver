@@ -9,6 +9,7 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/router"
 	steno "github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/gunk/localip"
+	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
 	"github.com/cloudfoundry/storeadapter/workerpool"
 	uuid "github.com/nu7hatch/gouuid"
@@ -91,7 +92,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	bbs := Bbs.New(etcdAdapter)
+	bbs := Bbs.New(etcdAdapter, timeprovider.NewTimeProvider())
 	maintainingPresence, lostPresence, err := bbs.MaintainFileServerPresence(config.HeartbeatInterval, fileServerURL, fileServerId.String())
 	if err != nil {
 		logger.Errorf("Failed to maintain presence: %s", err.Error())

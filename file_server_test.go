@@ -5,6 +5,7 @@ import (
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/router"
 	"github.com/cloudfoundry/gunk/runner_support"
+	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/cloudfoundry/gunk/urljoiner"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/config"
@@ -53,7 +54,7 @@ var _ = Describe("File_server", func() {
 			ccPassword = "password"
 		}
 
-		bbs = Bbs.New(etcdRunner.Adapter())
+		bbs = Bbs.New(etcdRunner.Adapter(), timeprovider.NewTimeProvider())
 		servedDirectory, err = ioutil.TempDir("", "file_server-test")
 		Ω(err).ShouldNot(HaveOccurred())
 		port = 8182 + config.GinkgoConfig.ParallelNode
