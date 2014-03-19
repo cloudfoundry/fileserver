@@ -1,7 +1,7 @@
 File Server
 ===========
 
-Bob Loblaw's file server
+Bob Loblaw's Blob Store
 
 ## Uploading Droplets
 
