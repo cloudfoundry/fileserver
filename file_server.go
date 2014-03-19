@@ -92,43 +92,58 @@ func main() {
 		os.Exit(1)
 	}
 
-	bbs := Bbs.New(etcdAdapter, timeprovider.NewTimeProvider())
-	maintainingPresence, lostPresence, err := bbs.MaintainFileServerPresence(config.HeartbeatInterval, fileServerURL, fileServerId.String())
-	if err != nil {
-		logger.Errorf("Failed to maintain presence: %s", err.Error())
-		os.Exit(1)
-	}
-
-	registerSignalHandler(maintainingPresence, logger)
-
-	go func() {
-		select {
-		case <-lostPresence:
-			logger.Error("file_server.maintaining-presence.failed")
-			os.Exit(1)
-		}
-	}()
-
 	actions := handlers.New(config, logger)
 	r, err := router.NewFileServerRoutes().Router(actions)
+
 	if err != nil {
-		logger.Errorf("Failed to build router: %s", err)
+		logger.Errorf("Failed to build router: %s", err.Error())
 		os.Exit(1)
 	}
+
+	bbs := Bbs.New(etcdAdapter, timeprovider.NewTimeProvider())
+
+	presence, statusChannel, err := bbs.MaintainFileServerPresence(config.HeartbeatInterval, fileServerURL, fileServerId.String())
+	if err != nil {
+		logger.Errorf("Failed to create file server presence: %s", err.Error())
+		os.Exit(1)
+	}
+
+	stopFileServer := make(chan bool)
+
+	registerSignalHandler(stopFileServer, logger)
+
+	go func() {
+		for {
+			select {
+			case status, ok := <-statusChannel:
+				if !ok {
+					return
+				}
+
+				if !status {
+					logger.Error("file-server.maintaining-presence.failed")
+				}
+
+			case <-stopFileServer:
+				presence.Remove()
+				os.Exit(0)
+			}
+		}
+	}()
 
 	logger.Infof("Serving files on %s", fileServerURL)
 	logger.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", config.Port), r).Error())
 }
 
-func registerSignalHandler(maintainingPresence Bbs.PresenceInterface, logger *steno.Logger) {
-	go func() {
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+func registerSignalHandler(stopChannel chan<- bool, logger *steno.Logger) {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 
+	go func() {
 		select {
 		case <-c:
-			maintainingPresence.Remove()
-			os.Exit(0)
+			signal.Stop(c)
+			stopChannel <- true
 		}
 	}()
 }

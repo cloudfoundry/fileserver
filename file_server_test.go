@@ -85,12 +85,23 @@ var _ = Describe("File_server", func() {
 			session = start("-address", "localhost", "-heartbeatInterval", "1s")
 		})
 
-		It("should return an error", func() {
+		It("should retry", func() {
 			_, err := bbs.GetAvailableFileServer()
 			Ω(err).ShouldNot(HaveOccurred())
+
 			etcdRunner.Stop()
-			time.Sleep(1500 * time.Millisecond)
-			Ω(session).Should(ExitWith(1))
+			Eventually(func() error {
+				_, err := bbs.GetAvailableFileServer()
+				return err
+			}).Should(HaveOccurred())
+			_, err = session.Wait(1)
+			Ω(err.Error()).Should(ContainSubstring("command did not exit"))
+
+			etcdRunner.Start()
+			Eventually(func() error {
+				_, err := bbs.GetAvailableFileServer()
+				return err
+			}, 3).ShouldNot(HaveOccurred())
 		})
 	})
 
