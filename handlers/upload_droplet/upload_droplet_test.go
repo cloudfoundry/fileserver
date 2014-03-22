@@ -122,7 +122,7 @@ var _ = Describe("UploadDroplet", func() {
 		})
 
 		It("calls all the requests", func() {
-			Ω(fakeCloudController.ReceivedRequests).Should(HaveLen(4))
+			Ω(fakeCloudController.ReceivedRequestsCount()).Should(Equal(4))
 		})
 
 		It("responds with 201 CREATED", func() {
@@ -160,7 +160,7 @@ var _ = Describe("UploadDroplet", func() {
 		})
 
 		It("stops polling after the first fail", func() {
-			Ω(fakeCloudController.ReceivedRequests).Should(HaveLen(4))
+			Ω(fakeCloudController.ReceivedRequestsCount()).Should(Equal(4))
 		})
 
 		It("responds with 500", func() {
@@ -185,7 +185,7 @@ var _ = Describe("UploadDroplet", func() {
 		})
 
 		It("should make the request", func() {
-			Ω(fakeCloudController.ReceivedRequests).Should(HaveLen(1))
+			Ω(fakeCloudController.ReceivedRequestsCount()).Should(Equal(1))
 		})
 
 		It("should pass along that status code", func() {
