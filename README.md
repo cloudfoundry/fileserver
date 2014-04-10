@@ -3,9 +3,11 @@ File Server
 
 Bob Loblaw's Blob Store
 
-## Uploading Droplets
+## Uploading Droplets & Build Artifacts
 
-Uploading droplets via CC involves crafting a correctly-formed multipart request and polling for the response.  We have an integration for this at the root level.  To run it you must specify (as environment variables):
+Uploading droplets & build artifacts via CC involves crafting a correctly-formed multipart request. For Droplets we also poll until the async job completes.
+
+To specify a remote cloud controller to test against, use the following environment variables:
 
 CC_ADDRESS the hostname for a deployed CC
 CC_USERNAME, CC_PASSWORD the basic auth credentials for the droplet upload endpoint
