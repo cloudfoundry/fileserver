@@ -1,15 +1,13 @@
 package upload_droplet
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/cloudfoundry-incubator/file-server/multipart"
 	steno "github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/gunk/http_client"
 	"github.com/cloudfoundry/gunk/urljoiner"
-	"io"
 	"io/ioutil"
-	"mime/multipart"
 	"net/http"
 	"net/url"
 	"time"
@@ -59,7 +57,7 @@ func (h *dropletUploader) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		"content-length": r.ContentLength,
 	}, "droplet.upload.start")
 
-	uploadReq, err := streamingMultipartRequest(url, r.ContentLength, r.Body, "upload[droplet]", "droplet.tgz")
+	uploadReq, err := multipart.NewRequestFromReader(url, r.ContentLength, r.Body, "upload[droplet]", "droplet.tgz")
 	if err != nil {
 		h.handleError(w, r, err, http.StatusInternalServerError)
 		return
@@ -170,54 +168,4 @@ func (h *dropletUploader) parsePollingResponse(res *http.Response) (pollingRespo
 		body.Metadata.Url = urljoiner.Join(h.addr, body.Metadata.Url)
 	}
 	return body, nil
-}
-
-// FILE UPLOAD HELPERS
-
-func computeMultipartLength(formField string, fileName string) (int64, string, error) {
-	multipartBuffer := &bytes.Buffer{}
-	multipartWriter := multipart.NewWriter(multipartBuffer)
-	_, err := multipartWriter.CreateFormFile(formField, fileName)
-	multipartWriter.Close()
-
-	return int64(multipartBuffer.Len()), multipartWriter.Boundary(), err
-}
-
-func streamingMultipartRequest(url string, contentLength int64, body io.Reader, formField string, fileName string) (*http.Request, error) {
-	pipeReader, pipeWriter := io.Pipe()
-
-	multipartLength, multipartBoundary, err := computeMultipartLength(formField, fileName)
-	if err != nil {
-		return nil, err
-	}
-
-	multipartWriter := multipart.NewWriter(pipeWriter)
-	multipartWriter.SetBoundary(multipartBoundary)
-	go func() {
-		var err error
-		defer func() {
-			pipeWriter.CloseWithError(err)
-		}()
-
-		filePartWriter, err := multipartWriter.CreateFormFile(formField, fileName)
-		if err != nil {
-			return
-		}
-
-		_, err = io.Copy(filePartWriter, body)
-		if err != nil {
-			return
-		}
-
-		err = multipartWriter.Close()
-	}()
-
-	uploadReq, err := http.NewRequest("POST", url, pipeReader)
-	if err != nil {
-		return nil, err
-	}
-	uploadReq.Header.Set("Content-Type", multipartWriter.FormDataContentType())
-	uploadReq.ContentLength = contentLength + multipartLength
-
-	return uploadReq, nil
 }
