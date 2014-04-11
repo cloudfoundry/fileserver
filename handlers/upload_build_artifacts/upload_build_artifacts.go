@@ -61,7 +61,8 @@ func (h *buildArtifactUploader) ServeHTTP(w http.ResponseWriter, r *http.Request
 
 	if uploadResp.StatusCode > 203 {
 		respBody, _ := ioutil.ReadAll(uploadResp.Body)
-		h.handleError(w, r, fmt.Errorf("Got status: %d\n%s", uploadResp.StatusCode, string(respBody)), uploadResp.StatusCode)
+		errorMsg := fmt.Errorf("Got status: %d\n%s", uploadResp.StatusCode, string(respBody))
+		h.handleError(w, r, errorMsg, uploadResp.StatusCode)
 		return
 	}
 

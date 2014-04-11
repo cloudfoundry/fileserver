@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
-	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -40,7 +39,6 @@ var _ = Describe("UploadBuildArtifacts", func() {
 
 	BeforeEach(func() {
 		postStatusCode = 0
-		postResponseBody = ""
 
 		uploadedBytes = nil
 		uploadedFileName = ""
@@ -72,7 +70,6 @@ var _ = Describe("UploadBuildArtifacts", func() {
 		conf.CCAddress = fakeCloudController.URL()
 		conf.CCUsername = ccUsername
 		conf.CCPassword = ccPassword
-		conf.CCJobPollingInterval = 10 * time.Millisecond
 
 		logger := gosteno.NewLogger("")
 		r, err := router.NewFileServerRoutes().Router(handlers.New(conf, logger))
@@ -122,7 +119,6 @@ var _ = Describe("UploadBuildArtifacts", func() {
 	Context("when CC returns a non-succesful status code", func() {
 		BeforeEach(func() {
 			postStatusCode = 403
-			postResponseBody = ""
 		})
 
 		It("makes the request to CC", func() {
