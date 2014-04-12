@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 )
 
 func New(addr, username, password string, skipCertVerification bool, logger *steno.Logger) http.Handler {
@@ -59,6 +60,8 @@ func (h *buildArtifactDownloader) ServeHTTP(w http.ResponseWriter, r *http.Reque
 	}
 
 	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Length", strconv.FormatInt(ccResponse.ContentLength, 10))
+
 	bytesWritten, err := io.Copy(w, ccResponse.Body)
 
 	if err != nil {

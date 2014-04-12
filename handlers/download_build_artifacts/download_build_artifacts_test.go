@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 
 	"github.com/cloudfoundry-incubator/file-server/config"
 	"github.com/cloudfoundry-incubator/file-server/handlers"
@@ -89,6 +90,12 @@ var _ = Describe("DownloadBuildArtifacts", func() {
 			body, err := ioutil.ReadAll(response.Body)
 			Ω(err).ShouldNot(HaveOccurred())
 			Ω(body).Should(Equal(testFile))
+
+			contentLengths := response.HeaderMap["Content-Length"]
+			Ω(contentLengths).Should(HaveLen(1))
+			contentLength, err := strconv.ParseInt(contentLengths[0], 10, 0)
+			Ω(err).ShouldNot(HaveOccurred())
+			Ω(int64(len(body))).Should(Equal(contentLength))
 		})
 
 		It("logs the request as success", func() {
