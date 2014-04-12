@@ -33,7 +33,7 @@ var _ = Describe("UploadBuildArtifacts", func() {
 		ccPassword     = "password"
 
 		uploadBody   = []byte("the file I'm uploading")
-		uploadMethod = "PUT"
+		uploadMethod = "POST"
 		uploadUrl    = "http://file-server.com/build_artifacts/app-guid"
 	)
 
