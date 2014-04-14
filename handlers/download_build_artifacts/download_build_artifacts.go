@@ -35,8 +35,7 @@ func (h *buildArtifactDownloader) ServeHTTP(w http.ResponseWriter, r *http.Reque
 	// we continue to make cloud controller endpoints
 	url := urljoiner.Join(h.addr, "staging", "buildpack_cache", r.FormValue(":app_guid"), "download")
 	h.logger.Infod(map[string]interface{}{
-		"url":            url,
-		"content-length": r.ContentLength,
+		"url": url,
 	}, "build_artifacts.download.start")
 
 	ccRequest, err := http.NewRequest("GET", url, nil)
