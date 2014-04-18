@@ -10,6 +10,7 @@ type Config struct {
 	Port              int
 	StaticDirectory   string
 	LogLevel          string
+	SyslogName        string
 	EtcdCluster       string
 	HeartbeatInterval time.Duration
 
