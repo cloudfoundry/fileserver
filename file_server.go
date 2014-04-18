@@ -3,6 +3,14 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"strings"
+	"syscall"
+	"time"
+
 	conf "github.com/cloudfoundry-incubator/file-server/config"
 	"github.com/cloudfoundry-incubator/file-server/handlers"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
@@ -13,13 +21,6 @@ import (
 	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
 	"github.com/cloudfoundry/storeadapter/workerpool"
 	uuid "github.com/nu7hatch/gouuid"
-	"log"
-	"net/http"
-	"os"
-	"os/signal"
-	"strings"
-	"syscall"
-	"time"
 )
 
 var (
@@ -31,6 +32,7 @@ func init() {
 	config = conf.New()
 	flag.StringVar(&config.Address, "address", "", "Specifies the address to bind to")
 	flag.IntVar(&config.Port, "port", 8080, "Specifies the port of the file server")
+	flag.StringVar(&config.SyslogName, "syslogName", "", "Syslog name")
 	flag.StringVar(&config.StaticDirectory, "staticDirectory", "", "Specifies the directory to serve local static files from")
 	flag.StringVar(&config.LogLevel, "logLevel", "info", "Logging level (none, fatal, error, warn, info, debug, debug1, debug2, all)")
 	flag.StringVar(&config.EtcdCluster, "etcdCluster", "http://127.0.0.1:4001", "comma-separated list of etcd addresses (http://ip:port)")
@@ -53,6 +55,10 @@ func main() {
 	stenoConfig := steno.Config{
 		Level: l,
 		Sinks: []steno.Sink{steno.NewIOSink(os.Stdout)},
+	}
+
+	if config.SyslogName != "" {
+		stenoConfig.Sinks = append(stenoConfig.Sinks, steno.NewSyslogSink(config.SyslogName))
 	}
 
 	steno.Init(&stenoConfig)
