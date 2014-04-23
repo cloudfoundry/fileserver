@@ -16,7 +16,7 @@ go get github.com/dustin/goveralls
 
 go install github.com/onsi/ginkgo/ginkgo
 
-ginkgo -r -failOnPending -randomizeAllSpecs -race "$@"
+ginkgo -r -cover -failOnPending -randomizeAllSpecs -race "$@"
 
 # don't leak coveralls token
 set +x
