@@ -22,7 +22,7 @@ ginkgo -r -cover -failOnPending -randomizeAllSpecs -race "$@"
 set +x
 
 if [ -n "$COVERALLS_TOKEN" ]; then
-  profiles=$(find . -name '*.coverprofile' | grep -v fake | grep -v Godeps | grep -v file_server.coverprofile)
+  profiles=$(find . -name '*.coverprofile' | grep -v fake | grep -v Godeps | grep -v file-server.coverprofile)
 
   echo mode: set > all.coverprofile
   cat $profiles | grep -v mode: >> all.coverprofile
