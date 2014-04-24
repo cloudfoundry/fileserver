@@ -14,6 +14,8 @@ import (
 	"github.com/cloudfoundry/gosteno"
 	ts "github.com/cloudfoundry/gunk/test_server"
 	"github.com/cloudfoundry/gunk/urljoiner"
+
+	. "github.com/cloudfoundry-incubator/file-server/handlers/test_helpers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -25,6 +27,7 @@ var _ = Describe("UploadDroplet", func() {
 		postResponseBody    string
 		uploadedBytes       []byte
 		uploadedFileName    string
+		uploadedHeaders     http.Header
 
 		incomingRequest  *http.Request
 		outgoingResponse *httptest.ResponseRecorder
@@ -61,6 +64,7 @@ var _ = Describe("UploadDroplet", func() {
 	BeforeEach(func() {
 		uploadedBytes = nil
 		uploadedFileName = ""
+		uploadedHeaders = nil
 
 		fakeCloudController = ts.New()
 
@@ -69,6 +73,7 @@ var _ = Describe("UploadDroplet", func() {
 			ts.VerifyBasicAuth("bob", "password"),
 			ts.RespondPtr(&postStatusCode, &postResponseBody),
 			func(w http.ResponseWriter, r *http.Request) {
+				uploadedHeaders = r.Header
 				file, fileHeader, err := r.FormFile("upload[droplet]")
 				Ω(err).ShouldNot(HaveOccurred())
 				uploadedBytes, err = ioutil.ReadAll(file)
@@ -81,6 +86,7 @@ var _ = Describe("UploadDroplet", func() {
 		var err error
 		buffer := bytes.NewBufferString("the file I'm uploading")
 		incomingRequest, err = http.NewRequest("POST", "http://file-server.com/droplet/app-guid", buffer)
+		incomingRequest.Header.Set("Content-MD5", "the-md5")
 		Ω(err).ShouldNot(HaveOccurred())
 	})
 
@@ -130,6 +136,10 @@ var _ = Describe("UploadDroplet", func() {
 			Ω(outgoingResponse.Code).Should(Equal(http.StatusCreated))
 		})
 
+		It("forwards the content-md5 header", func() {
+			Ω(uploadedHeaders.Get("Content-MD5")).Should(Equal("the-md5"))
+		})
+
 		It("uploads the correct file", func() {
 			Ω(uploadedBytes).Should(Equal([]byte("the file I'm uploading")))
 			Ω(uploadedFileName).Should(Equal("droplet.tgz"))
@@ -169,32 +179,6 @@ var _ = Describe("UploadDroplet", func() {
 		})
 	})
 
-	Context("uploading the file, when the request is missing content length", func() {
-		BeforeEach(func() {
-			incomingRequest.ContentLength = -1
-		})
-
-		It("responds with 411", func() {
-			Ω(outgoingResponse.Code).Should(Equal(http.StatusLengthRequired))
-		})
-	})
-
-	Context("when CC returns a non-succesful status code", func() {
-		BeforeEach(func() {
-			postStatusCode = 403
-			postResponseBody = ""
-		})
-
-		It("should make the request", func() {
-			Ω(fakeCloudController.ReceivedRequestsCount()).Should(Equal(1))
-		})
-
-		It("should pass along that status code", func() {
-			Ω(outgoingResponse.Code).Should(Equal(403))
-
-			data, err := ioutil.ReadAll(outgoingResponse.Body)
-			Ω(err).ShouldNot(HaveOccurred())
-			Ω(string(data)).Should(ContainSubstring("403"))
-		})
-	})
+	ItFailsWhenTheContentLengthIsMissing(&incomingRequest, &outgoingResponse, &fakeCloudController)
+	ItHandlesCCFailures(&postStatusCode, &outgoingResponse, &fakeCloudController)
 })

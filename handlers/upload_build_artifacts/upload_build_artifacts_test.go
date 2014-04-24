@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 
 	"github.com/cloudfoundry-incubator/file-server/config"
 	"github.com/cloudfoundry-incubator/file-server/handlers"
@@ -13,6 +12,7 @@ import (
 	"github.com/cloudfoundry/gosteno"
 	ts "github.com/cloudfoundry/gunk/test_server"
 
+	. "github.com/cloudfoundry-incubator/file-server/handlers/test_helpers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -24,33 +24,27 @@ var _ = Describe("UploadBuildArtifacts", func() {
 		postResponseBody    string
 		uploadedBytes       []byte
 		uploadedFileName    string
+		uploadedHeaders     http.Header
 
 		incomingRequest  *http.Request
 		outgoingResponse *httptest.ResponseRecorder
-
-		ccUploadMethod = "POST"
-		ccUploadPath   = "/staging/buildpack_cache/app-guid/upload"
-		ccUsername     = "bob"
-		ccPassword     = "password"
-
-		uploadBody   = []byte("the file I'm uploading")
-		uploadMethod = "POST"
-		uploadUrl    = "http://file-server.com/build_artifacts/app-guid"
 	)
 
 	BeforeEach(func() {
 		postStatusCode = 0
 
+		uploadedHeaders = nil
 		uploadedBytes = nil
 		uploadedFileName = ""
 
 		fakeCloudController = ts.New()
 
 		fakeCloudController.Append(ts.CombineHandlers(
-			ts.VerifyRequest(ccUploadMethod, ccUploadPath),
-			ts.VerifyBasicAuth(ccUsername, ccPassword),
+			ts.VerifyRequest("POST", "/staging/buildpack_cache/app-guid/upload"),
+			ts.VerifyBasicAuth("bob", "password"),
 			ts.RespondPtr(&postStatusCode, &postResponseBody),
 			func(w http.ResponseWriter, r *http.Request) {
+				uploadedHeaders = r.Header
 				file, fileHeader, err := r.FormFile("upload[droplet]")
 				Ω(err).ShouldNot(HaveOccurred())
 				uploadedBytes, err = ioutil.ReadAll(file)
@@ -61,16 +55,18 @@ var _ = Describe("UploadBuildArtifacts", func() {
 		))
 
 		var err error
-		buffer := bytes.NewBuffer(uploadBody)
-		incomingRequest, err = http.NewRequest(uploadMethod, uploadUrl, buffer)
+		buffer := bytes.NewBufferString("the file I'm uploading")
+		incomingRequest, err = http.NewRequest("POST", "http://file-server.com/build_artifacts/app-guid", buffer)
+		incomingRequest.Header.Set("Content-MD5", "the-md5")
+
 		Ω(err).ShouldNot(HaveOccurred())
 	})
 
 	JustBeforeEach(func(done Done) {
 		conf := config.New()
 		conf.CCAddress = fakeCloudController.URL()
-		conf.CCUsername = ccUsername
-		conf.CCPassword = ccPassword
+		conf.CCUsername = "bob"
+		conf.CCPassword = "password"
 
 		logger := gosteno.NewLogger("")
 		r, err := router.NewFileServerRoutes().Router(handlers.New(conf, logger))
@@ -88,7 +84,6 @@ var _ = Describe("UploadBuildArtifacts", func() {
 	})
 
 	Context("uploading the file, when all is well", func() {
-
 		It("makes the request to CC", func() {
 			Ω(fakeCloudController.ReceivedRequestsCount()).Should(Equal(1))
 		})
@@ -98,40 +93,15 @@ var _ = Describe("UploadBuildArtifacts", func() {
 		})
 
 		It("uploads the correct file", func() {
-			Ω(uploadedBytes).Should(Equal(uploadBody))
+			Ω(uploadedBytes).Should(Equal([]byte("the file I'm uploading")))
 			Ω(uploadedFileName).Should(Equal("buildpack_cache.tgz"))
 		})
-	})
 
-	Context("uploading the file, when the request is missing content length", func() {
-		BeforeEach(func() {
-			incomingRequest.ContentLength = -1
-		})
-
-		It("does not make the request to CC", func() {
-			Ω(fakeCloudController.ReceivedRequestsCount()).Should(Equal(0))
-		})
-
-		It("responds with 411", func() {
-			Ω(outgoingResponse.Code).Should(Equal(http.StatusLengthRequired))
+		It("forwards the content-md5 header", func() {
+			Ω(uploadedHeaders.Get("Content-MD5")).Should(Equal("the-md5"))
 		})
 	})
 
-	Context("when CC returns a non-succesful status code", func() {
-		BeforeEach(func() {
-			postStatusCode = 403
-		})
-
-		It("makes the request to CC", func() {
-			Ω(fakeCloudController.ReceivedRequestsCount()).Should(Equal(1))
-		})
-
-		It("responds with the status code from the CC request", func() {
-			Ω(outgoingResponse.Code).Should(Equal(postStatusCode))
-
-			data, err := ioutil.ReadAll(outgoingResponse.Body)
-			Ω(err).ShouldNot(HaveOccurred())
-			Ω(string(data)).Should(ContainSubstring(strconv.Itoa(postStatusCode)))
-		})
-	})
+	ItFailsWhenTheContentLengthIsMissing(&incomingRequest, &outgoingResponse, &fakeCloudController)
+	ItHandlesCCFailures(&postStatusCode, &outgoingResponse, &fakeCloudController)
 })

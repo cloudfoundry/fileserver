@@ -34,6 +34,10 @@ func New(baseUrl, username, password string, skipCertVerification bool) Uploader
 	}
 }
 
+var headersToForward = []string{
+	"Content-MD5",
+}
+
 func (u *httpUploader) Upload(url, filename string, r *http.Request) (*http.Response, error) {
 	defer r.Body.Close()
 	if r.ContentLength <= 0 {
@@ -45,6 +49,10 @@ func (u *httpUploader) Upload(url, filename string, r *http.Request) (*http.Resp
 		return nil, err
 	}
 	uploadReq.SetBasicAuth(u.username, u.password)
+
+	for _, headerName := range headersToForward {
+		uploadReq.Header.Set(headerName, r.Header.Get(headerName))
+	}
 
 	uploadResp, err := u.client.Do(uploadReq)
 	if err != nil {
