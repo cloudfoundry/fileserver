@@ -3,6 +3,11 @@ package upload_droplet_test
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
+	"time"
+
 	"github.com/cloudfoundry-incubator/file-server/config"
 	"github.com/cloudfoundry-incubator/file-server/handlers"
 	"github.com/cloudfoundry-incubator/runtime-schema/router"
@@ -11,10 +16,6 @@ import (
 	"github.com/cloudfoundry/gunk/urljoiner"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"io/ioutil"
-	"net/http"
-	"net/http/httptest"
-	"time"
 )
 
 var _ = Describe("UploadDroplet", func() {

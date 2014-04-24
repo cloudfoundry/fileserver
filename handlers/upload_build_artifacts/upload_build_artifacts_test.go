@@ -2,15 +2,16 @@ package upload_build_artifacts_test
 
 import (
 	"bytes"
+	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
+	"strconv"
+
 	"github.com/cloudfoundry-incubator/file-server/config"
 	"github.com/cloudfoundry-incubator/file-server/handlers"
 	"github.com/cloudfoundry-incubator/runtime-schema/router"
 	"github.com/cloudfoundry/gosteno"
 	ts "github.com/cloudfoundry/gunk/test_server"
-	"io/ioutil"
-	"net/http"
-	"net/http/httptest"
-	"strconv"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
