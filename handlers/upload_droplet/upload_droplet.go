@@ -3,14 +3,15 @@ package upload_droplet
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/cloudfoundry-incubator/file-server/multipart"
-	steno "github.com/cloudfoundry/gosteno"
-	"github.com/cloudfoundry/gunk/http_client"
-	"github.com/cloudfoundry/gunk/urljoiner"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/cloudfoundry-incubator/file-server/multipart"
+	steno "github.com/cloudfoundry/gosteno"
+	"github.com/cloudfoundry/gunk/http_client"
+	"github.com/cloudfoundry/gunk/urljoiner"
 )
 
 func New(addr, username, password string, pollingInterval time.Duration, skipCertVerification bool, logger *steno.Logger) http.Handler {
@@ -36,7 +37,7 @@ type dropletUploader struct {
 func (h *dropletUploader) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	if r.ContentLength <= 0 {
-		h.handleError(w, r, fmt.Errorf("Mssing Content Length"), http.StatusLengthRequired)
+		h.handleError(w, r, fmt.Errorf("Missing Content Length"), http.StatusLengthRequired)
 		return
 	}
 
