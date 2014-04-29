@@ -2,16 +2,6 @@ package main_test
 
 import (
 	"fmt"
-	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
-	"github.com/cloudfoundry-incubator/runtime-schema/router"
-	"github.com/cloudfoundry/gunk/runner_support"
-	"github.com/cloudfoundry/gunk/timeprovider"
-	"github.com/cloudfoundry/gunk/urljoiner"
-	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/config"
-	. "github.com/onsi/gomega"
-	"github.com/vito/cmdtest"
-	. "github.com/vito/cmdtest/matchers"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -22,6 +12,15 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
+	"github.com/cloudfoundry-incubator/runtime-schema/router"
+	"github.com/cloudfoundry/gunk/timeprovider"
+	"github.com/cloudfoundry/gunk/urljoiner"
+	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/config"
+	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gexec"
 )
 
 var ccAddress = os.Getenv("CC_ADDRESS")
@@ -34,16 +33,15 @@ var _ = Describe("File_server", func() {
 		bbs             *Bbs.BBS
 		port            int
 		servedDirectory string
-		session         *cmdtest.Session
+		session         *gexec.Session
 		err             error
 	)
 
-	start := func(extras ...string) *cmdtest.Session {
+	start := func(extras ...string) *gexec.Session {
 		args := append(extras, "-staticDirectory", servedDirectory, "-port", strconv.Itoa(port), "-etcdCluster", etcdRunner.NodeURLS()[0], "-ccAddress", ccAddress, "-ccUsername", ccUsername, "-ccPassword", ccPassword, "-skipCertVerify")
-		session, err = cmdtest.StartWrapped(exec.Command(fileServerBinary, args...), runner_support.TeeToGinkgoWriter, runner_support.TeeToGinkgoWriter)
+		session, err = gexec.Start(exec.Command(fileServerBinary, args...), GinkgoWriter, GinkgoWriter)
 		Ω(err).ShouldNot(HaveOccurred())
-		_, err := session.Wait(10 * time.Millisecond)
-		Ω(err).Should(HaveOccurred(), "Error: fileserver did not start")
+		time.Sleep(10 * time.Millisecond)
 		return session
 	}
 
@@ -61,7 +59,7 @@ var _ = Describe("File_server", func() {
 	})
 
 	AfterEach(func() {
-		session.Cmd.Process.Kill()
+		session.Kill().Wait()
 		os.RemoveAll(servedDirectory)
 	})
 
@@ -72,8 +70,8 @@ var _ = Describe("File_server", func() {
 			_, err = bbs.GetAvailableFileServer()
 			Ω(err).ShouldNot(HaveOccurred())
 
-			session.Cmd.Process.Signal(os.Interrupt)
-			Ω(session).Should(ExitWith(0))
+			session.Interrupt()
+			Eventually(session).Should(gexec.Exit(0))
 
 			_, err = bbs.GetAvailableFileServer()
 			Ω(err).Should(HaveOccurred())
@@ -94,8 +92,8 @@ var _ = Describe("File_server", func() {
 				_, err := bbs.GetAvailableFileServer()
 				return err
 			}).Should(HaveOccurred())
-			_, err = session.Wait(1)
-			Ω(err.Error()).Should(ContainSubstring("command did not exit"))
+
+			Consistently(session, 1).ShouldNot(gexec.Exit())
 
 			etcdRunner.Start()
 			Eventually(func() error {
@@ -107,9 +105,9 @@ var _ = Describe("File_server", func() {
 
 	Context("when started without any arguments", func() {
 		It("should fail", func() {
-			session, err = cmdtest.Start(exec.Command(fileServerBinary))
+			session, err = gexec.Start(exec.Command(fileServerBinary), GinkgoWriter, GinkgoWriter)
 			Ω(err).ShouldNot(HaveOccurred())
-			Ω(session).Should(ExitWith(1))
+			Eventually(session).Should(gexec.Exit(1))
 		})
 	})
 

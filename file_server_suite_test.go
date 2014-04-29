@@ -3,11 +3,8 @@ package main_test
 import (
 	"github.com/cloudfoundry/storeadapter/storerunner/etcdstorerunner"
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/config"
 	. "github.com/onsi/gomega"
-	"github.com/vito/cmdtest"
-	"os"
-	"os/signal"
+	"github.com/onsi/gomega/gexec"
 
 	"testing"
 )
@@ -16,16 +13,19 @@ var fileServerBinary string
 var etcdRunner *etcdstorerunner.ETCDClusterRunner
 
 func TestFileServer(t *testing.T) {
-	registerSignalHandler()
 	RegisterFailHandler(Fail)
 
-	var err error
-	fileServerBinary, err = cmdtest.Build("github.com/cloudfoundry-incubator/file-server")
-	if err != nil {
-		panic(err.Error())
-	}
+	BeforeSuite(func() {
+		var err error
+		fileServerBinary, err = gexec.Build("github.com/cloudfoundry-incubator/file-server")
+		Ω(err).ShouldNot(HaveOccurred())
 
-	etcdRunner = etcdstorerunner.NewETCDClusterRunner(5001+config.GinkgoConfig.ParallelNode, 1)
+		etcdRunner = etcdstorerunner.NewETCDClusterRunner(5001+GinkgoParallelNode(), 1)
+	})
+
+	AfterSuite(func() {
+		etcdRunner.Stop()
+	})
 
 	RunSpecs(t, "File Server Suite")
 }
@@ -37,16 +37,3 @@ var _ = BeforeEach(func() {
 var _ = AfterEach(func() {
 	etcdRunner.Stop()
 })
-
-func registerSignalHandler() {
-	go func() {
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, os.Interrupt, os.Kill)
-
-		select {
-		case <-c:
-			etcdRunner.Stop()
-			os.Exit(0)
-		}
-	}()
-}
