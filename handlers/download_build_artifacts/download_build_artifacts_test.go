@@ -30,7 +30,7 @@ var _ = Describe("DownloadBuildArtifacts", func() {
 
 		request       *http.Request
 		requestMethod = "GET"
-		requestUrl    = "http://file-server.com/build_artifacts/app-guid"
+		requestUrl    = "http://file-server.com/v1/build_artifacts/app-guid"
 
 		response *httptest.ResponseRecorder
 

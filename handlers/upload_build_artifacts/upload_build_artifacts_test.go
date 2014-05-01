@@ -56,7 +56,7 @@ var _ = Describe("UploadBuildArtifacts", func() {
 
 		var err error
 		buffer := bytes.NewBufferString("the file I'm uploading")
-		incomingRequest, err = http.NewRequest("POST", "http://file-server.com/build_artifacts/app-guid", buffer)
+		incomingRequest, err = http.NewRequest("POST", "http://file-server.com/v1/build_artifacts/app-guid", buffer)
 		incomingRequest.Header.Set("Content-MD5", "the-md5")
 
 		Ω(err).ShouldNot(HaveOccurred())

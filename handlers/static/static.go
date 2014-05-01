@@ -6,8 +6,8 @@ import (
 	"os"
 )
 
-func New(dir string) http.Handler {
+func New(dir, pathPrefix string) http.Handler {
 	fileServer := http.FileServer(http.Dir(dir))
-	stripped := http.StripPrefix("/static", fileServer)
+	stripped := http.StripPrefix(pathPrefix, fileServer)
 	return handlers.LoggingHandler(os.Stdout, stripped)
 }
