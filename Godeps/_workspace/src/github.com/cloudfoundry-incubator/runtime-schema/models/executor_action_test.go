@@ -55,7 +55,7 @@ var _ = Describe("ExecutorAction", func() {
 				"args": {
 					"from": "web_location",
 					"to": "local_location",
-					"cache_key": "the-cache-key",
+					"cache_key": "elephant",
 					"extract": true
 				}
 			}`,
@@ -64,7 +64,7 @@ var _ = Describe("ExecutorAction", func() {
 					From:     "web_location",
 					To:       "local_location",
 					Extract:  true,
-					CacheKey: "the-cache-key",
+					CacheKey: "elephant",
 				},
 			},
 		)
