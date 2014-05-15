@@ -52,7 +52,7 @@ var _ = Describe("File_server", func() {
 			ccPassword = "password"
 		}
 
-		bbs = Bbs.New(etcdRunner.Adapter(), timeprovider.NewTimeProvider())
+		bbs = Bbs.NewBBS(etcdRunner.Adapter(), timeprovider.NewTimeProvider())
 		servedDirectory, err = ioutil.TempDir("", "file_server-test")
 		Ω(err).ShouldNot(HaveOccurred())
 		port = 8182 + config.GinkgoConfig.ParallelNode

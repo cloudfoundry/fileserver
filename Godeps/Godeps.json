@@ -7,19 +7,19 @@
 	"Deps": [
 		{
 			"ImportPath": "github.com/bmizerany/pat",
-			"Rev": "51b7af73e39f6dc59846b22d56ca886d105ef0c3"
+			"Rev": "48be7df2c27e1cec821a3284a683ce6ef90d9052"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/bbs",
-			"Rev": "3e0ba94e208f4b443aaa5d40d039c35c14f1c37c"
+			"Rev": "d49701a1f22625e15f0aec2eebd2d804b4fa711f"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/models",
-			"Rev": "3e0ba94e208f4b443aaa5d40d039c35c14f1c37c"
+			"Rev": "d49701a1f22625e15f0aec2eebd2d804b4fa711f"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/router",
-			"Rev": "3e0ba94e208f4b443aaa5d40d039c35c14f1c37c"
+			"Rev": "d49701a1f22625e15f0aec2eebd2d804b4fa711f"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/gosteno",
@@ -28,27 +28,27 @@
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/gunk/http_client",
-			"Rev": "93aaeec320a837a8d6b47ecbb4b4eab957a3e1de"
+			"Rev": "21adc866d245fff747352415cc036b5ec3c3d4f5"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/gunk/localip",
-			"Rev": "93aaeec320a837a8d6b47ecbb4b4eab957a3e1de"
+			"Rev": "21adc866d245fff747352415cc036b5ec3c3d4f5"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/gunk/test_server",
-			"Rev": "93aaeec320a837a8d6b47ecbb4b4eab957a3e1de"
+			"Rev": "21adc866d245fff747352415cc036b5ec3c3d4f5"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/gunk/timeprovider",
-			"Rev": "93aaeec320a837a8d6b47ecbb4b4eab957a3e1de"
+			"Rev": "21adc866d245fff747352415cc036b5ec3c3d4f5"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/gunk/urljoiner",
-			"Rev": "93aaeec320a837a8d6b47ecbb4b4eab957a3e1de"
+			"Rev": "21adc866d245fff747352415cc036b5ec3c3d4f5"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/storeadapter",
-			"Rev": "28086a050c8acb6bc1d28fd23645e208aa95585d"
+			"Rev": "c21b707184aa2b2b4a8c8a25e90bc36011dd147d"
 		},
 		{
 			"ImportPath": "github.com/coreos/go-etcd/etcd",
@@ -65,11 +65,11 @@
 		},
 		{
 			"ImportPath": "github.com/onsi/ginkgo",
-			"Rev": "2a0c5c3f92805fd1f431dfbe22625e811b6b3f18"
+			"Rev": "51ddbbc2ace9f9ad4cf06ba63442ea2ef2019837"
 		},
 		{
 			"ImportPath": "github.com/onsi/gomega",
-			"Rev": "d53f20ed6065e75dd459ceb4904b3e0a5cadbf0d"
+			"Rev": "f5533d435ebfcf4fa0463202dc0e966b983618b8"
 		}
 	]
 }

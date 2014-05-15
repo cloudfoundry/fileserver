@@ -14,6 +14,7 @@ import (
 	conf "github.com/cloudfoundry-incubator/file-server/config"
 	"github.com/cloudfoundry-incubator/file-server/handlers"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
+	"github.com/cloudfoundry-incubator/runtime-schema/bbs/services_bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/router"
 	steno "github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/gunk/localip"
@@ -24,7 +25,7 @@ import (
 )
 
 var (
-	presence *Bbs.Presence
+	presence *services_bbs.Presence
 	config   *conf.Config
 )
 
@@ -106,7 +107,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	bbs := Bbs.New(etcdAdapter, timeprovider.NewTimeProvider())
+	bbs := Bbs.NewFileServerBBS(etcdAdapter, timeprovider.NewTimeProvider())
 
 	presence, statusChannel, err := bbs.MaintainFileServerPresence(config.HeartbeatInterval, fileServerURL, fileServerId.String())
 	if err != nil {
