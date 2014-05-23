@@ -6,7 +6,6 @@ import (
 	"net/http/httptest"
 	"strconv"
 
-	"github.com/cloudfoundry-incubator/file-server/config"
 	"github.com/cloudfoundry-incubator/file-server/handlers"
 	"github.com/cloudfoundry-incubator/runtime-schema/router"
 	"github.com/cloudfoundry/gosteno"
@@ -55,10 +54,11 @@ var _ = Describe("DownloadBuildArtifacts", func() {
 	})
 
 	JustBeforeEach(func(done Done) {
-		conf := config.New()
-		conf.CCAddress = fakeCloudController.URL()
-		conf.CCUsername = ccUsername
-		conf.CCPassword = ccPassword
+		conf := handlers.Config{
+			CCAddress:  fakeCloudController.URL(),
+			CCUsername: ccUsername,
+			CCPassword: ccPassword,
+		}
 
 		gosteno.EnterTestMode()
 		logger = gosteno.NewLogger("test")

@@ -7,8 +7,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"time"
-
-	"github.com/cloudfoundry-incubator/file-server/config"
 	"github.com/cloudfoundry-incubator/file-server/handlers"
 	"github.com/cloudfoundry-incubator/runtime-schema/router"
 	"github.com/cloudfoundry/gosteno"
@@ -91,11 +89,12 @@ var _ = Describe("UploadDroplet", func() {
 	})
 
 	JustBeforeEach(func(done Done) {
-		conf := config.New()
-		conf.CCAddress = fakeCloudController.URL()
-		conf.CCUsername = "bob"
-		conf.CCPassword = "password"
-		conf.CCJobPollingInterval = 10 * time.Millisecond
+		conf := handlers.Config{
+			CCAddress:            fakeCloudController.URL(),
+			CCUsername:           "bob",
+			CCPassword:           "password",
+			CCJobPollingInterval: 10 * time.Millisecond,
+		}
 
 		logger := gosteno.NewLogger("")
 		r, err := router.NewFileServerRoutes().Router(handlers.New(conf, logger))

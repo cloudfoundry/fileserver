@@ -107,7 +107,7 @@ var _ = Describe("File_server", func() {
 		It("should fail", func() {
 			session, err = gexec.Start(exec.Command(fileServerBinary), GinkgoWriter, GinkgoWriter)
 			Ω(err).ShouldNot(HaveOccurred())
-			Eventually(session).Should(gexec.Exit(1))
+			Eventually(session).Should(gexec.Exit(2))
 		})
 	})
 

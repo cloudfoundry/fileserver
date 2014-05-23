@@ -1,7 +1,8 @@
 package handlers
 
 import (
-	"github.com/cloudfoundry-incubator/file-server/config"
+	"time"
+
 	"github.com/cloudfoundry-incubator/file-server/handlers/download_build_artifacts"
 	"github.com/cloudfoundry-incubator/file-server/handlers/static"
 	"github.com/cloudfoundry-incubator/file-server/handlers/upload_build_artifacts"
@@ -10,7 +11,19 @@ import (
 	steno "github.com/cloudfoundry/gosteno"
 )
 
-func New(c *config.Config, logger *steno.Logger) router.Handlers {
+type Config struct {
+	StaticDirectory   string
+	HeartbeatInterval time.Duration
+
+	CCAddress            string
+	CCUsername           string
+	CCPassword           string
+	CCJobPollingInterval time.Duration
+
+	SkipCertVerify bool
+}
+
+func New(c Config, logger *steno.Logger) router.Handlers {
 	staticRoute, _ := router.NewFileServerRoutes().RouteForHandler(router.FS_STATIC)
 
 	return router.Handlers{

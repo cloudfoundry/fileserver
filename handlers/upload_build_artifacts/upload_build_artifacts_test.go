@@ -5,8 +5,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-
-	"github.com/cloudfoundry-incubator/file-server/config"
 	"github.com/cloudfoundry-incubator/file-server/handlers"
 	"github.com/cloudfoundry-incubator/runtime-schema/router"
 	"github.com/cloudfoundry/gosteno"
@@ -63,10 +61,11 @@ var _ = Describe("UploadBuildArtifacts", func() {
 	})
 
 	JustBeforeEach(func(done Done) {
-		conf := config.New()
-		conf.CCAddress = fakeCloudController.URL()
-		conf.CCUsername = "bob"
-		conf.CCPassword = "password"
+		conf := handlers.Config{
+			CCAddress:  fakeCloudController.URL(),
+			CCUsername: "bob",
+			CCPassword: "password",
+		}
 
 		logger := gosteno.NewLogger("")
 		r, err := router.NewFileServerRoutes().Router(handlers.New(conf, logger))
