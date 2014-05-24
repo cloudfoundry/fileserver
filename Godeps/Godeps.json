@@ -11,15 +11,15 @@
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/bbs",
-			"Rev": "d49701a1f22625e15f0aec2eebd2d804b4fa711f"
+			"Rev": "64dda0340995d0e7274e7faf53f44906d19db58b"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/models",
-			"Rev": "d49701a1f22625e15f0aec2eebd2d804b4fa711f"
+			"Rev": "64dda0340995d0e7274e7faf53f44906d19db58b"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/router",
-			"Rev": "d49701a1f22625e15f0aec2eebd2d804b4fa711f"
+			"Rev": "64dda0340995d0e7274e7faf53f44906d19db58b"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/gosteno",
@@ -28,32 +28,32 @@
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/gunk/http_client",
-			"Rev": "21adc866d245fff747352415cc036b5ec3c3d4f5"
+			"Rev": "7961fb4a446e96ef5a35fee37aa4b4945dca6745"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/gunk/localip",
-			"Rev": "21adc866d245fff747352415cc036b5ec3c3d4f5"
+			"Rev": "7961fb4a446e96ef5a35fee37aa4b4945dca6745"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/gunk/test_server",
-			"Rev": "21adc866d245fff747352415cc036b5ec3c3d4f5"
+			"Rev": "7961fb4a446e96ef5a35fee37aa4b4945dca6745"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/gunk/timeprovider",
-			"Rev": "21adc866d245fff747352415cc036b5ec3c3d4f5"
+			"Rev": "7961fb4a446e96ef5a35fee37aa4b4945dca6745"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/gunk/urljoiner",
-			"Rev": "21adc866d245fff747352415cc036b5ec3c3d4f5"
+			"Rev": "7961fb4a446e96ef5a35fee37aa4b4945dca6745"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/storeadapter",
-			"Rev": "c21b707184aa2b2b4a8c8a25e90bc36011dd147d"
+			"Rev": "4ab2c502399a8be4998fb8d76a2cc16654d135ee"
 		},
 		{
 			"ImportPath": "github.com/coreos/go-etcd/etcd",
-			"Comment": "v0.2.0-rc1-100-g1014044",
-			"Rev": "1014044eff94a4931724969b68867a0ee05beabc"
+			"Comment": "v0.2.0-rc1-106-g26f4504",
+			"Rev": "26f4504e71d6abefd467eb44a02ff15b933b6eb6"
 		},
 		{
 			"ImportPath": "github.com/gorilla/handlers",
@@ -65,11 +65,15 @@
 		},
 		{
 			"ImportPath": "github.com/onsi/ginkgo",
-			"Rev": "51ddbbc2ace9f9ad4cf06ba63442ea2ef2019837"
+			"Rev": "a2498a3b8773b7b373ac8aa8fd774f2488a54590"
 		},
 		{
 			"ImportPath": "github.com/onsi/gomega",
-			"Rev": "f5533d435ebfcf4fa0463202dc0e966b983618b8"
+			"Rev": "31890964f058d62158db8efe8ccd6cb55a5ecd6d"
+		},
+		{
+			"ImportPath": "github.com/tedsuo/ifrit",
+			"Rev": "28e5a1d991b72ee764526ec08f53e757ed214784"
 		}
 	]
 }

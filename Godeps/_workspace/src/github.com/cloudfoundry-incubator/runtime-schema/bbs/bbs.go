@@ -23,20 +23,24 @@ type ExecutorBBS interface {
 }
 
 type RepBBS interface {
+	//services
+	MaintainRepPresence(heartbeatInterval time.Duration, repPresence models.RepPresence) (services_bbs.Presence, <-chan bool, error)
+
 	//task
 	WatchForDesiredTask() (<-chan models.Task, chan<- bool, <-chan error)
 	ClaimTask(task models.Task, executorID string) (models.Task, error)
 	StartTask(task models.Task, containerHandle string) (models.Task, error)
 	CompleteTask(task models.Task, failed bool, failureReason string, result string) (models.Task, error)
 
-	//lrp
-	WatchForDesiredTransitionalLongRunningProcess() (<-chan models.TransitionalLongRunningProcess, chan<- bool, <-chan error)
-	StartTransitionalLongRunningProcess(lrp models.TransitionalLongRunningProcess) error
+	///lrp
+	ReportActualLRPAsStarting(lrp models.LRP) error
+	ReportActualLRPAsRunning(lrp models.LRP) error
+	RemoveActualLRP(lrp models.LRP) error
 }
 
 type ConvergerBBS interface {
 	//task
-	ConvergeTask(timeToClaim time.Duration)
+	ConvergeTask(timeToClaim time.Duration, converganceInterval time.Duration)
 
 	//lock
 	MaintainConvergeLock(interval time.Duration, executorID string) (disappeared <-chan bool, stop chan<- chan bool, err error)
@@ -44,7 +48,24 @@ type ConvergerBBS interface {
 
 type AppManagerBBS interface {
 	//lrp
-	DesireTransitionalLongRunningProcess(models.TransitionalLongRunningProcess) error
+	DesireLRP(models.DesiredLRP) error
+	RequestLRPStartAuction(models.LRPStartAuction) error
+
+	//services
+	GetAvailableFileServer() (string, error)
+}
+
+type AuctioneerBBS interface {
+	//services
+	GetAllReps() ([]models.RepPresence, error)
+
+	//lrp
+	WatchForLRPStartAuction() (<-chan models.LRPStartAuction, chan<- bool, <-chan error)
+	ClaimLRPStartAuction(models.LRPStartAuction) error
+	ResolveLRPStartAuction(models.LRPStartAuction) error
+
+	//lock
+	MaintainAuctioneerLock(interval time.Duration, auctioneerID string) (<-chan bool, chan<- chan bool, error)
 }
 
 type StagerBBS interface {
@@ -75,6 +96,16 @@ type FileServerBBS interface {
 	) (presence services_bbs.Presence, disappeared <-chan bool, err error)
 }
 
+type LRPRouterBBS interface {
+	// lrp
+	WatchForDesiredLRPChanges() (<-chan models.DesiredLRPChange, chan<- bool, <-chan error)
+	WatchForActualLRPChanges() (<-chan models.ActualLRPChange, chan<- bool, <-chan error)
+	GetAllDesiredLRPs() ([]models.DesiredLRP, error)
+	GetRunningActualLRPs() ([]models.LRP, error)
+	GetDesiredLRPByProcessGuid(processGuid string) (models.DesiredLRP, error)
+	GetRunningActualLRPsByProcessGuid(processGuid string) ([]models.LRP, error)
+}
+
 func NewExecutorBBS(store storeadapter.StoreAdapter, timeProvider timeprovider.TimeProvider) ExecutorBBS {
 	return NewBBS(store, timeProvider)
 }
@@ -91,6 +122,10 @@ func NewAppManagerBBS(store storeadapter.StoreAdapter, timeProvider timeprovider
 	return NewBBS(store, timeProvider)
 }
 
+func NewAuctioneerBBS(store storeadapter.StoreAdapter, timeProvider timeprovider.TimeProvider) AuctioneerBBS {
+	return NewBBS(store, timeProvider)
+}
+
 func NewStagerBBS(store storeadapter.StoreAdapter, timeProvider timeprovider.TimeProvider) StagerBBS {
 	return NewBBS(store, timeProvider)
 }
@@ -103,18 +138,22 @@ func NewFileServerBBS(store storeadapter.StoreAdapter, timeProvider timeprovider
 	return NewBBS(store, timeProvider)
 }
 
+func NewLRPRouterBBS(store storeadapter.StoreAdapter, timeProvider timeprovider.TimeProvider) LRPRouterBBS {
+	return NewBBS(store, timeProvider)
+}
+
 func NewBBS(store storeadapter.StoreAdapter, timeProvider timeprovider.TimeProvider) *BBS {
 	return &BBS{
-		LockBBS:               lock_bbs.New(store),
-		LongRunningProcessBBS: lrp_bbs.New(store),
-		ServicesBBS:           services_bbs.New(store),
-		TaskBBS:               task_bbs.New(store, timeProvider),
+		LockBBS:     lock_bbs.New(store),
+		LRPBBS:      lrp_bbs.New(store),
+		ServicesBBS: services_bbs.New(store),
+		TaskBBS:     task_bbs.New(store, timeProvider),
 	}
 }
 
 type BBS struct {
 	*lock_bbs.LockBBS
-	*lrp_bbs.LongRunningProcessBBS
+	*lrp_bbs.LRPBBS
 	*services_bbs.ServicesBBS
 	*task_bbs.TaskBBS
 }
