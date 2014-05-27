@@ -1,9 +1,7 @@
 package maintain
 
 import (
-	"errors"
 	"os"
-	"syscall"
 	"time"
 
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
@@ -42,21 +40,13 @@ func (m *Maintainer) Run(sigChan <-chan os.Signal, ready chan<- struct{}) error 
 
 	for {
 		select {
-		case sig := <-sigChan:
-			switch sig {
-			case syscall.SIGINT, syscall.SIGTERM:
-				presence.Remove()
-				return nil
-			}
+		case <-sigChan:
+			presence.Remove()
+			return nil
 
-		case locked, ok := <-status:
+		case _, ok := <-status:
 			if !ok {
 				return nil
-			}
-
-			if !locked {
-				m.logger.Error("file-server.maintain_presence.failed")
-				return errors.New("Failed to maintain presence")
 			}
 		}
 	}
