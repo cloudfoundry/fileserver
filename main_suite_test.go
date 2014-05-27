@@ -1,6 +1,7 @@
 package main_test
 
 import (
+	"github.com/cloudfoundry-incubator/inigo/fake_cc"
 	"github.com/cloudfoundry/storeadapter/storerunner/etcdstorerunner"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -11,6 +12,7 @@ import (
 
 var fileServerBinary string
 var etcdRunner *etcdstorerunner.ETCDClusterRunner
+var fakeCC *fake_cc.FakeCC
 
 func TestFileServer(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -32,8 +34,11 @@ func TestFileServer(t *testing.T) {
 
 var _ = BeforeEach(func() {
 	etcdRunner.Start()
+	fakeCC = fake_cc.New()
+	fakeCC.Start()
 })
 
 var _ = AfterEach(func() {
 	etcdRunner.Stop()
+	fakeCC.Stop()
 })

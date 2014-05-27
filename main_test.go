@@ -2,6 +2,7 @@ package main_test
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -9,8 +10,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
-	"strings"
 	"time"
 
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
@@ -23,39 +24,79 @@ import (
 	"github.com/onsi/gomega/gexec"
 )
 
-var ccAddress = os.Getenv("CC_ADDRESS")
-var ccUsername = os.Getenv("CC_USERNAME")
-var ccPassword = os.Getenv("CC_PASSWORD")
-var appGuid = os.Getenv("CC_APPGUID")
+type ByteEmitter struct {
+	written int
+	length  int
+}
+
+func NewEmitter(length int) *ByteEmitter {
+	return &ByteEmitter{
+		length:  length,
+		written: 0,
+	}
+}
+
+func (emitter *ByteEmitter) Read(p []byte) (n int, err error) {
+	if emitter.written >= emitter.length {
+		return 0, io.EOF
+	}
+	time.Sleep(time.Millisecond)
+	p[0] = 0xF1
+	emitter.written++
+	return 1, nil
+}
 
 var _ = Describe("File server", func() {
 	var (
 		bbs             *Bbs.BBS
 		port            int
+		address         string
 		servedDirectory string
 		session         *gexec.Session
 		err             error
+		appGuid         = "app-guid"
 	)
 
 	start := func(extras ...string) *gexec.Session {
-		args := append(extras, "-staticDirectory", servedDirectory, "-port", strconv.Itoa(port), "-etcdCluster", etcdRunner.NodeURLS()[0], "-ccAddress", ccAddress, "-ccUsername", ccUsername, "-ccPassword", ccPassword, "-skipCertVerify")
+		args := append(
+			extras,
+			"-staticDirectory", servedDirectory,
+			"-port", strconv.Itoa(port),
+			"-etcdCluster", etcdRunner.NodeURLS()[0],
+			"-ccAddress", fakeCC.Address(),
+			"-ccUsername", fakeCC.Username(),
+			"-ccPassword", fakeCC.Password(),
+			"-skipCertVerify",
+		)
+
 		session, err = gexec.Start(exec.Command(fileServerBinary, args...), GinkgoWriter, GinkgoWriter)
 		Ω(err).ShouldNot(HaveOccurred())
 		time.Sleep(10 * time.Millisecond)
 		return session
 	}
 
-	BeforeEach(func() {
-		if ccAddress == "" {
-			ccAddress = "http://example.com"
-			ccUsername = "username"
-			ccPassword = "password"
-		}
+	dropletUploadRequest := func(appGuid string, body io.Reader, contentLength int) *http.Request {
+		route, ok := router.NewFileServerRoutes().RouteForHandler(router.FS_UPLOAD_DROPLET)
+		Ω(ok).Should(BeTrue())
 
+		path, err := route.PathWithParams(map[string]string{"guid": appGuid})
+		Ω(err).ShouldNot(HaveOccurred())
+		url := urljoiner.Join(address, path)
+
+		postRequest, err := http.NewRequest("POST", url, body)
+		Ω(err).ShouldNot(HaveOccurred())
+		postRequest.ContentLength = int64(contentLength)
+		postRequest.Header.Set("Content-Type", "application/octet-stream")
+
+		return postRequest
+	}
+
+	BeforeEach(func() {
 		bbs = Bbs.NewBBS(etcdRunner.Adapter(), timeprovider.NewTimeProvider())
 		servedDirectory, err = ioutil.TempDir("", "file_server-test")
 		Ω(err).ShouldNot(HaveOccurred())
 		port = 8182 + config.GinkgoConfig.ParallelNode
+		address = fmt.Sprintf("http://localhost:%d", port)
 	})
 
 	AfterEach(func() {
@@ -154,45 +195,63 @@ var _ = Describe("File server", func() {
 		})
 	})
 
-	if appGuid != "" {
-		Describe("uploading a file", func() {
-			var tempFile string
-			BeforeEach(func() {
-				f, err := ioutil.TempFile("", "upload.tmp")
-				Ω(err).ShouldNot(HaveOccurred())
-				tempFile = f.Name()
-				f.Close()
-			})
+	Describe("uploading a file", func() {
+		var contentLength = 100
 
-			It("should upload the file...", func() {
-				session = start("-address", "localhost")
-
-				content := strings.Repeat("a big file", 10*1024)
-				err := ioutil.WriteFile(tempFile, []byte(content), 0777)
-				Ω(err).ShouldNot(HaveOccurred())
-
-				route, ok := router.NewFileServerRoutes().RouteForHandler(router.FS_UPLOAD_DROPLET)
-				Ω(ok).Should(BeTrue())
-
-				path, err := route.PathWithParams(map[string]string{"guid": appGuid})
-				Ω(err).ShouldNot(HaveOccurred())
-				url := urljoiner.Join(fmt.Sprintf("http://localhost:%d", port), path)
-
-				file, err := os.Open(tempFile)
-				Ω(err).ShouldNot(HaveOccurred())
-
-				fileStat, err := file.Stat()
-				Ω(err).ShouldNot(HaveOccurred())
-
-				postRequest, err := http.NewRequest("POST", url, file)
-				Ω(err).ShouldNot(HaveOccurred())
-				postRequest.ContentLength = fileStat.Size()
-				postRequest.Header.Set("Content-Type", "application/octet-stream")
-
-				resp, err := http.DefaultClient.Do(postRequest)
-				Ω(err).ShouldNot(HaveOccurred())
-				Ω(resp.StatusCode).Should(Equal(http.StatusCreated))
-			})
+		BeforeEach(func() {
+			session = start("-address", "localhost")
 		})
-	}
+
+		It("should upload the file...", func(done Done) {
+			emitter := NewEmitter(contentLength)
+			postRequest := dropletUploadRequest(appGuid, emitter, contentLength)
+			resp, err := http.DefaultClient.Do(postRequest)
+			Ω(err).ShouldNot(HaveOccurred())
+			defer resp.Body.Close()
+
+			Ω(resp.StatusCode).Should(Equal(http.StatusCreated))
+			Ω(len(fakeCC.UploadedDroplets[appGuid])).Should(Equal(contentLength))
+			close(done)
+		}, 2.0)
+	})
+
+	XDescribe("when the fileserver receives SIGINT", func() {
+		var sendStarted chan struct{}
+
+		BeforeEach(func() {
+			runtime.GOMAXPROCS(8)
+			session = start("-address", "localhost")
+			sendStarted = make(chan struct{})
+			go func() {
+				defer GinkgoRecover()
+				<-sendStarted
+				time.Sleep(1000 * time.Millisecond)
+				println("******** INTERRUPT ********")
+				session.Interrupt()
+			}()
+		})
+
+		Describe("and file requests are in flight", func() {
+			var contentLength = 100000
+
+			It("completes in-flight file requests", func(done Done) {
+				close(sendStarted)
+				emitter := NewEmitter(contentLength)
+				postRequest := dropletUploadRequest(appGuid, emitter, contentLength)
+
+				client := http.Client{
+					Transport: &http.Transport{},
+				}
+
+				resp, err := client.Do(postRequest)
+				Ω(err).ShouldNot(HaveOccurred())
+				resp.Body.Close()
+
+				Ω(resp.StatusCode).Should(Equal(http.StatusCreated))
+				Ω(len(fakeCC.UploadedDroplets[appGuid])).Should(Equal(contentLength))
+
+				close(done)
+			}, 8.0)
+		})
+	})
 })

@@ -14,7 +14,7 @@ import (
 	"github.com/cloudfoundry-incubator/file-server/maintain"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/services_bbs"
-	"github.com/cloudfoundry-incubator/runtime-schema/router"
+	Router "github.com/cloudfoundry-incubator/runtime-schema/router"
 	steno "github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/gunk/localip"
 	"github.com/cloudfoundry/gunk/timeprovider"
@@ -108,15 +108,26 @@ func main() {
 	bbs := initializeFileServerBBS(logger)
 
 	group := grouper.EnvokeGroup(grouper.RunGroup{
-		"maintainer": initializeMaintainer(logger, bbs),
-		"server":     initializeServer(logger),
+		"maintainer":  initializeMaintainer(logger, bbs),
+		"file server": initializeServer(logger),
 	})
-
 	monitor := ifrit.Envoke(sigmon.New(group))
 
-	err := <-monitor.Wait()
-	if err != nil {
-		logger.Fatal(err.Error())
+	monitorEnded := monitor.Wait()
+	workerEnded := group.Exits()
+
+	for {
+		select {
+		case member := <-workerEnded:
+			logger.Infof("%s exited", member.Name)
+			monitor.Signal(syscall.SIGTERM)
+
+		case err := <-monitorEnded:
+			if err != nil {
+				logger.Fatal(err.Error())
+			}
+			os.Exit(0)
+		}
 	}
 }
 
@@ -184,7 +195,7 @@ func initializeServer(logger *steno.Logger) ifrit.Runner {
 		StaticDirectory:      *staticDirectory,
 	}, logger)
 
-	r, err := router.NewFileServerRoutes().Router(actions)
+	router, err := Router.NewFileServerRoutes().Router(actions)
 
 	if err != nil {
 		logger.Errorf("Failed to build router: %s", err.Error())
@@ -192,7 +203,7 @@ func initializeServer(logger *steno.Logger) ifrit.Runner {
 	}
 
 	address := fmt.Sprintf(":%d", *serverPort)
-	return http_server.New(address, r)
+	return http_server.New(address, router)
 }
 
 func initializeFileServerBBS(logger *steno.Logger) Bbs.FileServerBBS {
