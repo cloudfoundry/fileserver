@@ -10,6 +10,10 @@
 			"Rev": "48be7df2c27e1cec821a3284a683ce6ef90d9052"
 		},
 		{
+			"ImportPath": "github.com/cloudfoundry-incubator/inigo/fake_cc",
+			"Rev": "df8edaee7dc7c81f277826c214158315087c8e2f"
+		},
+		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/bbs",
 			"Rev": "64dda0340995d0e7274e7faf53f44906d19db58b"
 		},
@@ -65,15 +69,16 @@
 		},
 		{
 			"ImportPath": "github.com/onsi/ginkgo",
-			"Rev": "a2498a3b8773b7b373ac8aa8fd774f2488a54590"
+			"Comment": "v1.0.0-2-g4cf6831",
+			"Rev": "4cf683101c36426dc975f4db4d7f01d9c071f31a"
 		},
 		{
 			"ImportPath": "github.com/onsi/gomega",
-			"Rev": "31890964f058d62158db8efe8ccd6cb55a5ecd6d"
+			"Rev": "50bea9a608004800126b3fddab0c3608d87c0ca9"
 		},
 		{
 			"ImportPath": "github.com/tedsuo/ifrit",
-			"Rev": "f02dc8a87f9898bcaf8aae82d92954a6d5eb7717"
+			"Rev": "8f57c1dcd12fc1cf91eea3f7704e348f3023f834"
 		}
 	]
 }
