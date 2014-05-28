@@ -218,7 +218,7 @@ func initializeFileServerBBS(logger *steno.Logger) Bbs.FileServerBBS {
 		os.Exit(1)
 	}
 
-	return Bbs.NewFileServerBBS(etcdAdapter, timeprovider.NewTimeProvider())
+	return Bbs.NewFileServerBBS(etcdAdapter, timeprovider.NewTimeProvider(), logger)
 }
 
 func registerSignalHandler(stopChannel chan<- bool, logger *steno.Logger) {

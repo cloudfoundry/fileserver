@@ -16,6 +16,7 @@ import (
 
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/router"
+	steno "github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/cloudfoundry/gunk/urljoiner"
 	. "github.com/onsi/ginkgo"
@@ -92,7 +93,16 @@ var _ = Describe("File server", func() {
 	}
 
 	BeforeEach(func() {
-		bbs = Bbs.NewBBS(etcdRunner.Adapter(), timeprovider.NewTimeProvider())
+		logSink := steno.NewTestingSink()
+
+		steno.Init(&steno.Config{
+			Sinks: []steno.Sink{logSink},
+		})
+
+		logger := steno.NewLogger("the-logger")
+		steno.EnterTestMode()
+
+		bbs = Bbs.NewBBS(etcdRunner.Adapter(), timeprovider.NewTimeProvider(), logger)
 		servedDirectory, err = ioutil.TempDir("", "file_server-test")
 		Ω(err).ShouldNot(HaveOccurred())
 		port = 8182 + config.GinkgoConfig.ParallelNode
