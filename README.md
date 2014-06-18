@@ -14,3 +14,5 @@ To specify a remote cloud controller to test against, use the following environm
 CC_ADDRESS the hostname for a deployed CC
 CC_USERNAME, CC_PASSWORD the basic auth credentials for the droplet upload endpoint
 CC_APPGUID a valid app guid on that deployed CC
+
+####Learn more about Diego and its components at [diego-design-notes](https://github.com/cloudfoundry-incubator/diego-design-notes)
