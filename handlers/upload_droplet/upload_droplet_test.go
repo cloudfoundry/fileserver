@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"time"
+
 	"github.com/cloudfoundry-incubator/file-server/handlers"
 	"github.com/cloudfoundry-incubator/runtime-schema/router"
 	"github.com/cloudfoundry/gosteno"
@@ -93,7 +94,7 @@ var _ = Describe("UploadDroplet", func() {
 			CCAddress:            fakeCloudController.URL(),
 			CCUsername:           "bob",
 			CCPassword:           "password",
-			CCJobPollingInterval: 10 * time.Millisecond,
+			CCJobPollingInterval: 100 * time.Millisecond,
 		}
 
 		logger := gosteno.NewLogger("")
@@ -149,8 +150,8 @@ var _ = Describe("UploadDroplet", func() {
 			secondTime := <-timeClicker
 			thirdTime := <-timeClicker
 
-			Ω(secondTime.Sub(firstTime)).Should(BeNumerically(">", 5*time.Millisecond))
-			Ω(thirdTime.Sub(secondTime)).Should(BeNumerically(">", 5*time.Millisecond))
+			Ω(secondTime.Sub(firstTime)).Should(BeNumerically(">", 75*time.Millisecond))
+			Ω(thirdTime.Sub(secondTime)).Should(BeNumerically(">", 75*time.Millisecond))
 		})
 	})
 
