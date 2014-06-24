@@ -75,6 +75,7 @@ var _ = Describe("File server", func() {
 		Ω(err).ShouldNot(HaveOccurred())
 
 		Eventually(session).Should(gbytes.Say("file-server.ready"))
+
 		return session
 	}
 
@@ -141,6 +142,7 @@ var _ = Describe("File server", func() {
 			Ω(err).ShouldNot(HaveOccurred())
 
 			etcdRunner.Stop()
+
 			Eventually(func() error {
 				_, err := bbs.GetAvailableFileServer()
 				return err

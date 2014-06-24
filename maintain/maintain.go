@@ -34,10 +34,6 @@ func (m *Maintainer) Run(sigChan <-chan os.Signal, ready chan<- struct{}) error 
 		}, "file-server.maintain_presence_begin.failed")
 	}
 
-	if ready != nil {
-		close(ready)
-	}
-
 	for {
 		select {
 		case <-sigChan:
@@ -45,7 +41,12 @@ func (m *Maintainer) Run(sigChan <-chan os.Signal, ready chan<- struct{}) error 
 			return nil
 
 		case _, ok := <-status:
-			if !ok {
+			if ok {
+				if ready != nil {
+					close(ready)
+					ready = nil
+				}
+			} else {
 				return nil
 			}
 		}
