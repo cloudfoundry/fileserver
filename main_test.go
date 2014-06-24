@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/config"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 )
 
@@ -72,7 +73,8 @@ var _ = Describe("File server", func() {
 
 		session, err = gexec.Start(exec.Command(fileServerBinary, args...), GinkgoWriter, GinkgoWriter)
 		Ω(err).ShouldNot(HaveOccurred())
-		time.Sleep(10 * time.Millisecond)
+
+		Eventually(session).Should(gbytes.Say("file-server.ready"))
 		return session
 	}
 

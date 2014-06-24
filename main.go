@@ -113,6 +113,8 @@ func main() {
 	})
 	monitor := ifrit.Envoke(sigmon.New(group))
 
+	logger.Info("file-server.ready")
+
 	monitorEnded := monitor.Wait()
 	workerEnded := group.Exits()
 
