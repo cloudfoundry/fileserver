@@ -3,13 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 	"time"
 
+	"github.com/cloudfoundry-incubator/cf-lager"
 	"github.com/cloudfoundry-incubator/file-server/handlers"
 	"github.com/cloudfoundry-incubator/file-server/maintain"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
@@ -21,6 +21,7 @@ import (
 	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
 	"github.com/cloudfoundry/storeadapter/workerpool"
 	uuid "github.com/nu7hatch/gouuid"
+	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
 	"github.com/tedsuo/ifrit/http_server"
@@ -33,12 +34,6 @@ var serverAddress = flag.String(
 	"address",
 	"",
 	"Specifies the address to bind to",
-)
-
-var logLevel = flag.String(
-	"logLevel",
-	"info",
-	"Logging level (none, fatal, error, warn, info, debug, debug1, debug2, all)",
 )
 
 var etcdCluster = flag.String(
@@ -104,8 +99,9 @@ var ccJobPollingInterval = flag.Duration(
 func main() {
 	flag.Parse()
 
-	logger := initializeLogger()
-	bbs := initializeFileServerBBS(logger)
+	logger := cf_lager.New("file-server")
+	stenoLogger := initializeStenoLogger()
+	bbs := initializeFileServerBBS(stenoLogger)
 
 	group := grouper.EnvokeGroup(grouper.RunGroup{
 		"maintainer":  initializeMaintainer(logger, bbs),
@@ -113,7 +109,7 @@ func main() {
 	})
 	monitor := ifrit.Envoke(sigmon.New(group))
 
-	logger.Info("file-server.ready")
+	logger.Info("ready")
 
 	monitorEnded := monitor.Wait()
 	workerEnded := group.Exits()
@@ -121,27 +117,23 @@ func main() {
 	for {
 		select {
 		case member := <-workerEnded:
-			logger.Infof("%s exited", member.Name)
+			logger.Info(fmt.Sprintf("%s exited", member.Name))
 			monitor.Signal(syscall.SIGTERM)
 
 		case err := <-monitorEnded:
 			if err != nil {
-				logger.Fatal(err.Error())
+				logger.Fatal("failed", err)
 			}
 			os.Exit(0)
 		}
 	}
 }
 
-func initializeLogger() *steno.Logger {
-	l, err := steno.GetLogLevel(*logLevel)
-	if err != nil {
-		log.Fatalf("Invalid loglevel: %s\n", *logLevel)
-	}
-
+func initializeStenoLogger() *steno.Logger {
 	stenoConfig := steno.Config{
-		Level: l,
-		Sinks: []steno.Sink{steno.NewIOSink(os.Stdout)},
+		Sinks: []steno.Sink{
+			steno.NewIOSink(os.Stdout),
+		},
 	}
 
 	if *syslogName != "" {
@@ -149,43 +141,44 @@ func initializeLogger() *steno.Logger {
 	}
 
 	steno.Init(&stenoConfig)
+
 	return steno.NewLogger("file_server")
 }
 
-func initializeMaintainer(logger *steno.Logger, bbs Bbs.FileServerBBS) *maintain.Maintainer {
+func initializeMaintainer(logger lager.Logger, bbs Bbs.FileServerBBS) *maintain.Maintainer {
 	if *serverAddress == "" {
 		var err error
 		*serverAddress, err = localip.LocalIP()
 		if err != nil {
-			logger.Errorf("Error obtaining local ip address: %s\n", err.Error())
+			logger.Error("obtaining-local-ip-failed", err)
 			os.Exit(1)
 		}
 	}
 
 	url := fmt.Sprintf("http://%s:%d/", *serverAddress, *serverPort)
-	logger.Infof("Serving files on %s", url)
+	logger.Info("serving-files-location", lager.Data{"url": url})
 
 	id, err := uuid.NewV4()
 	if err != nil {
-		logger.Error("Could not create a UUID")
+		logger.Error("create-uuid-failed", err)
 		os.Exit(1)
 	}
 
 	return maintain.New(url, id.String(), bbs, logger, *heartbeatInterval)
 }
 
-func initializeServer(logger *steno.Logger) ifrit.Runner {
+func initializeServer(logger lager.Logger) ifrit.Runner {
 	if *staticDirectory == "" {
-		logger.Fatal("staticDirectory is required")
+		logger.Fatal("static-directory-missing", nil)
 	}
 	if *ccAddress == "" {
-		logger.Fatal("ccAddress is required")
+		logger.Fatal("cc-address-missing", nil)
 	}
 	if *ccUsername == "" {
-		logger.Fatal("ccUsername is required")
+		logger.Fatal("cc-username-missing", nil)
 	}
 	if *ccPassword == "" {
-		logger.Fatal("ccPassword is required")
+		logger.Fatal("cc-password-missing", nil)
 	}
 
 	actions := handlers.New(handlers.Config{
@@ -200,7 +193,7 @@ func initializeServer(logger *steno.Logger) ifrit.Runner {
 	router, err := Router.NewFileServerRoutes().Router(actions)
 
 	if err != nil {
-		logger.Errorf("Failed to build router: %s", err.Error())
+		logger.Error("router-building-failed", err)
 		os.Exit(1)
 	}
 

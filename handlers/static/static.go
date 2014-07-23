@@ -1,13 +1,16 @@
 package static
 
 import (
-	"github.com/gorilla/handlers"
 	"net/http"
-	"os"
+
+	"github.com/pivotal-golang/lager"
 )
 
-func New(dir, pathPrefix string) http.Handler {
+func New(dir, pathPrefix string, logger lager.Logger) http.Handler {
 	fileServer := http.FileServer(http.Dir(dir))
 	stripped := http.StripPrefix(pathPrefix, fileServer)
-	return handlers.LoggingHandler(os.Stdout, stripped)
+	return loggingHandler{
+		logger:          logger,
+		originalHandler: stripped,
+	}
 }

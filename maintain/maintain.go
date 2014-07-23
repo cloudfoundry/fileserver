@@ -5,23 +5,24 @@ import (
 	"time"
 
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
-	steno "github.com/cloudfoundry/gosteno"
+	"github.com/pivotal-golang/lager"
 )
 
 type Maintainer struct {
 	url               string
 	id                string
 	bbs               Bbs.FileServerBBS
-	logger            *steno.Logger
+	logger            lager.Logger
 	heartbeatInterval time.Duration
 }
 
-func New(url, id string, bbs Bbs.FileServerBBS, logger *steno.Logger, heartbeatInterval time.Duration) *Maintainer {
+func New(url, id string, bbs Bbs.FileServerBBS, logger lager.Logger, heartbeatInterval time.Duration) *Maintainer {
+	maintainerLogger := logger.Session("maintain-presense")
 	return &Maintainer{
 		url:               url,
 		id:                id,
 		bbs:               bbs,
-		logger:            logger,
+		logger:            maintainerLogger,
 		heartbeatInterval: heartbeatInterval,
 	}
 }
@@ -29,9 +30,7 @@ func New(url, id string, bbs Bbs.FileServerBBS, logger *steno.Logger, heartbeatI
 func (m *Maintainer) Run(sigChan <-chan os.Signal, ready chan<- struct{}) error {
 	presence, status, err := m.bbs.MaintainFileServerPresence(m.heartbeatInterval, m.url, m.id)
 	if err != nil {
-		m.logger.Errord(map[string]interface{}{
-			"error": err.Error(),
-		}, "file-server.maintain_presence_begin.failed")
+		m.logger.Error("begin.failed", err)
 	}
 
 	for {

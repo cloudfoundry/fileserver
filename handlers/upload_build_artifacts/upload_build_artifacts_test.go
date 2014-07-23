@@ -5,10 +5,11 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+
 	"github.com/cloudfoundry-incubator/file-server/handlers"
 	"github.com/cloudfoundry-incubator/runtime-schema/router"
-	"github.com/cloudfoundry/gosteno"
 	ts "github.com/cloudfoundry/gunk/test_server"
+	"github.com/pivotal-golang/lager"
 
 	. "github.com/cloudfoundry-incubator/file-server/handlers/test_helpers"
 	. "github.com/onsi/ginkgo"
@@ -67,7 +68,7 @@ var _ = Describe("UploadBuildArtifacts", func() {
 			CCPassword: "password",
 		}
 
-		logger := gosteno.NewLogger("")
+		logger := lager.NewLogger("fakelogger")
 		r, err := router.NewFileServerRoutes().Router(handlers.New(conf, logger))
 		Ω(err).ShouldNot(HaveOccurred())
 

@@ -4,11 +4,11 @@ import (
 	"net/http"
 
 	"github.com/cloudfoundry-incubator/file-server/handlers/uploader"
-	steno "github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/gunk/urljoiner"
+	"github.com/pivotal-golang/lager"
 )
 
-func New(addr, username, password string, skipCertVerification bool, logger *steno.Logger) http.Handler {
+func New(addr, username, password string, skipCertVerification bool, logger lager.Logger) http.Handler {
 	return &buildArtifactUploader{
 		uploader: uploader.New(addr, username, password, skipCertVerification),
 		logger:   logger,
@@ -17,7 +17,7 @@ func New(addr, username, password string, skipCertVerification bool, logger *ste
 
 type buildArtifactUploader struct {
 	uploader uploader.Uploader
-	logger   *steno.Logger
+	logger   lager.Logger
 }
 
 func (h *buildArtifactUploader) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -26,32 +26,32 @@ func (h *buildArtifactUploader) ServeHTTP(w http.ResponseWriter, r *http.Request
 	// we continue to make cloud controller endpoints
 	url := urljoiner.Join("staging", "buildpack_cache", r.FormValue(":app_guid"), "upload")
 
-	h.logger.Infod(map[string]interface{}{
+	requestLogger := h.logger.Session("build-artifacts.upload")
+
+	requestLogger.Info("start", lager.Data{
 		"url":            url,
 		"content-length": r.ContentLength,
-	}, "build_artifacts.upload.start")
+	})
 
 	uploadResp, err := h.uploader.Upload(url, "buildpack_cache.tgz", r)
 	if err != nil {
-		h.handleError(w, r, err, uploadResp)
+		handleError(w, r, err, uploadResp, requestLogger)
 	}
 
 	w.WriteHeader(http.StatusOK)
-	h.logger.Infod(map[string]interface{}{
+	requestLogger.Info("success", lager.Data{
 		"url":            url,
 		"content-length": r.ContentLength,
-	}, "build_artifacts.upload.success")
+	})
 }
 
-func (h *buildArtifactUploader) handleError(w http.ResponseWriter, r *http.Request, err error, resp *http.Response) {
+func handleError(w http.ResponseWriter, r *http.Request, err error, resp *http.Response, logger lager.Logger) {
 	status := http.StatusInternalServerError
 	if resp != nil {
 		status = resp.StatusCode
 	}
 
-	h.logger.Errord(map[string]interface{}{
-		"error": err.Error(),
-	}, "build_artifacts.upload.failed")
+	logger.Error("failed", err)
 	w.WriteHeader(status)
 	w.Write([]byte(err.Error()))
 }

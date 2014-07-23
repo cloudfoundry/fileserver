@@ -8,11 +8,12 @@ import (
 
 	"github.com/cloudfoundry-incubator/file-server/handlers"
 	"github.com/cloudfoundry-incubator/runtime-schema/router"
-	"github.com/cloudfoundry/gosteno"
 	ts "github.com/cloudfoundry/gunk/test_server"
+	"github.com/pivotal-golang/lager"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
 )
 
 var _ = Describe("DownloadBuildArtifacts", func() {
@@ -33,7 +34,7 @@ var _ = Describe("DownloadBuildArtifacts", func() {
 
 		response *httptest.ResponseRecorder
 
-		logger *gosteno.Logger
+		logOutput *gbytes.Buffer
 	)
 
 	BeforeEach(func() {
@@ -60,8 +61,9 @@ var _ = Describe("DownloadBuildArtifacts", func() {
 			CCPassword: ccPassword,
 		}
 
-		gosteno.EnterTestMode()
-		logger = gosteno.NewLogger("test")
+		logger := lager.NewLogger("fakelogger")
+		logOutput = gbytes.NewBuffer()
+		logger.RegisterSink(lager.NewWriterSink(logOutput, lager.INFO))
 		r, err := router.NewFileServerRoutes().Router(handlers.New(conf, logger))
 		Ω(err).ShouldNot(HaveOccurred())
 
@@ -99,13 +101,8 @@ var _ = Describe("DownloadBuildArtifacts", func() {
 		})
 
 		It("logs the request as success", func() {
-			records := gosteno.GetMeTheGlobalTestSink().Records()
-			var logs string
-			for _, record := range records {
-				logs += record.Message + "\n"
-			}
-			Ω(logs).ShouldNot(ContainSubstring("build_artifacts.download.failed"))
-			Ω(logs).Should(ContainSubstring("build_artifacts.download.success"))
+			Ω(logOutput).Should(gbytes.Say("build-artifacts.download.success"))
+			Ω(string(logOutput.Contents())).ShouldNot(ContainSubstring("build-artifacts.download.failed"))
 		})
 	})
 
@@ -123,13 +120,8 @@ var _ = Describe("DownloadBuildArtifacts", func() {
 		})
 
 		It("logs the request as failed", func() {
-			records := gosteno.GetMeTheGlobalTestSink().Records()
-			var logs string
-			for _, record := range records {
-				logs += record.Message + "\n"
-			}
-			Ω(logs).Should(ContainSubstring("build_artifacts.download.failed"))
-			Ω(logs).ShouldNot(ContainSubstring("build_artifacts.download.success"))
+			Ω(logOutput).Should(gbytes.Say("build-artifacts.download.cc-status-code-failed"))
+			Ω(string(logOutput.Contents())).ShouldNot(ContainSubstring("build-artifacts.download.success"))
 		})
 	})
 })
