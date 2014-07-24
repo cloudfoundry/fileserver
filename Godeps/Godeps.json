@@ -19,24 +19,19 @@
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/inigo/fake_cc",
-			"Rev": "4c2331a8b23c8d61fb1277c4ce8a513bd0353698"
+			"Rev": "6aee84fe8acec32f977258913645a733cefdd350"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/bbs",
-			"Rev": "1f960419a571ef0e973d7885767f266d5c7601d8"
+			"Rev": "0584b2b1185bd915309fba87cb43a392e0f1ea05"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/models",
-			"Rev": "1f960419a571ef0e973d7885767f266d5c7601d8"
+			"Rev": "0584b2b1185bd915309fba87cb43a392e0f1ea05"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/router",
-			"Rev": "1f960419a571ef0e973d7885767f266d5c7601d8"
-		},
-		{
-			"ImportPath": "github.com/cloudfoundry/gosteno",
-			"Comment": "scotty_09012012-41-g5c1406e",
-			"Rev": "5c1406e9ea0ab919f92e1b194169565def41147b"
+			"Rev": "0584b2b1185bd915309fba87cb43a392e0f1ea05"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/gunk/http_client",
@@ -86,7 +81,7 @@
 		},
 		{
 			"ImportPath": "github.com/tedsuo/ifrit",
-			"Rev": "79ecfbe018f60a70d5a687d7aa1eecc2351be91f"
+			"Rev": "435f9e78ed02262ec0d1e13a82b5a475c990714a"
 		}
 	]
 }

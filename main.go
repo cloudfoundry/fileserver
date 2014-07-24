@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"os/signal"
 	"strings"
 	"syscall"
 	"time"
@@ -15,7 +14,6 @@ import (
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/services_bbs"
 	Router "github.com/cloudfoundry-incubator/runtime-schema/router"
-	steno "github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/gunk/localip"
 	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
@@ -46,12 +44,6 @@ var staticDirectory = flag.String(
 	"staticDirectory",
 	"",
 	"Specifies the directory to serve local static files from",
-)
-
-var syslogName = flag.String(
-	"syslogName",
-	"",
-	"Syslog name",
 )
 
 var serverPort = flag.Int(
@@ -100,8 +92,7 @@ func main() {
 	flag.Parse()
 
 	logger := cf_lager.New("file-server")
-	stenoLogger := initializeStenoLogger()
-	bbs := initializeFileServerBBS(stenoLogger)
+	bbs := initializeFileServerBBS(logger)
 
 	group := grouper.EnvokeGroup(grouper.RunGroup{
 		"maintainer":  initializeMaintainer(logger, bbs),
@@ -127,22 +118,6 @@ func main() {
 			os.Exit(0)
 		}
 	}
-}
-
-func initializeStenoLogger() *steno.Logger {
-	stenoConfig := steno.Config{
-		Sinks: []steno.Sink{
-			steno.NewIOSink(os.Stdout),
-		},
-	}
-
-	if *syslogName != "" {
-		stenoConfig.Sinks = append(stenoConfig.Sinks, steno.NewSyslogSink(*syslogName))
-	}
-
-	steno.Init(&stenoConfig)
-
-	return steno.NewLogger("file_server")
 }
 
 func initializeMaintainer(logger lager.Logger, bbs Bbs.FileServerBBS) *maintain.Maintainer {
@@ -201,7 +176,7 @@ func initializeServer(logger lager.Logger) ifrit.Runner {
 	return http_server.New(address, router)
 }
 
-func initializeFileServerBBS(logger *steno.Logger) Bbs.FileServerBBS {
+func initializeFileServerBBS(logger lager.Logger) Bbs.FileServerBBS {
 	etcdAdapter := etcdstoreadapter.NewETCDStoreAdapter(
 		strings.Split(*etcdCluster, ","),
 		workerpool.NewWorkerPool(10),
@@ -209,22 +184,8 @@ func initializeFileServerBBS(logger *steno.Logger) Bbs.FileServerBBS {
 
 	err := etcdAdapter.Connect()
 	if err != nil {
-		logger.Errorf("Error connecting to etcd: %s\n", err.Error())
-		os.Exit(1)
+		logger.Fatal("failed-to-connect-to-etcd", err)
 	}
 
 	return Bbs.NewFileServerBBS(etcdAdapter, timeprovider.NewTimeProvider(), logger)
-}
-
-func registerSignalHandler(stopChannel chan<- bool, logger *steno.Logger) {
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		select {
-		case <-c:
-			signal.Stop(c)
-			stopChannel <- true
-		}
-	}()
 }
