@@ -9,7 +9,7 @@ import (
 	"github.com/cloudfoundry-incubator/file-server/handlers"
 	"github.com/cloudfoundry-incubator/runtime-schema/router"
 	ts "github.com/cloudfoundry/gunk/test_server"
-	"github.com/pivotal-golang/lager"
+	"github.com/pivotal-golang/lager/lagertest"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -34,7 +34,7 @@ var _ = Describe("DownloadBuildArtifacts", func() {
 
 		response *httptest.ResponseRecorder
 
-		logOutput *gbytes.Buffer
+		logger *lagertest.TestLogger
 	)
 
 	BeforeEach(func() {
@@ -61,9 +61,8 @@ var _ = Describe("DownloadBuildArtifacts", func() {
 			CCPassword: ccPassword,
 		}
 
-		logger := lager.NewLogger("fakelogger")
-		logOutput = gbytes.NewBuffer()
-		logger.RegisterSink(lager.NewWriterSink(logOutput, lager.INFO))
+		logger = lagertest.NewTestLogger("test")
+
 		r, err := router.NewFileServerRoutes().Router(handlers.New(conf, logger))
 		Ω(err).ShouldNot(HaveOccurred())
 
@@ -101,8 +100,8 @@ var _ = Describe("DownloadBuildArtifacts", func() {
 		})
 
 		It("logs the request as success", func() {
-			Ω(logOutput).Should(gbytes.Say("build-artifacts.download.success"))
-			Ω(string(logOutput.Contents())).ShouldNot(ContainSubstring("build-artifacts.download.failed"))
+			Ω(logger.TestSink.Buffer).Should(gbytes.Say("build-artifacts.download.success"))
+			Ω(string(logger.TestSink.Buffer.Contents())).ShouldNot(ContainSubstring("build-artifacts.download.failed"))
 		})
 	})
 
@@ -120,8 +119,8 @@ var _ = Describe("DownloadBuildArtifacts", func() {
 		})
 
 		It("logs the request as failed", func() {
-			Ω(logOutput).Should(gbytes.Say("build-artifacts.download.cc-status-code-failed"))
-			Ω(string(logOutput.Contents())).ShouldNot(ContainSubstring("build-artifacts.download.success"))
+			Ω(logger.TestSink.Buffer).Should(gbytes.Say("build-artifacts.download.cc-status-code-failed"))
+			Ω(string(logger.TestSink.Buffer.Contents())).ShouldNot(ContainSubstring("build-artifacts.download.success"))
 		})
 	})
 })
