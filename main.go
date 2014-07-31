@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/cloudfoundry-incubator/cf-debug-server"
 	"github.com/cloudfoundry-incubator/cf-lager"
 	"github.com/cloudfoundry-incubator/file-server/handlers"
 	"github.com/cloudfoundry-incubator/file-server/maintain"
@@ -93,6 +94,8 @@ func main() {
 
 	logger := cf_lager.New("file-server")
 	bbs := initializeFileServerBBS(logger)
+
+	cf_debug_server.Run()
 
 	group := grouper.EnvokeGroup(grouper.RunGroup{
 		"maintainer":  initializeMaintainer(logger, bbs),
