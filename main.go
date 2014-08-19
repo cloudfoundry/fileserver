@@ -5,24 +5,22 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/cloudfoundry-incubator/cf-debug-server"
 	"github.com/cloudfoundry-incubator/cf-lager"
 	"github.com/cloudfoundry-incubator/file-server/handlers"
-	"github.com/cloudfoundry-incubator/file-server/maintain"
-	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/services_bbs"
+	"github.com/cloudfoundry-incubator/runtime-schema/bbs/shared"
+	"github.com/cloudfoundry-incubator/runtime-schema/heartbeater"
 	Router "github.com/cloudfoundry-incubator/runtime-schema/router"
+	"github.com/cloudfoundry/gunk/group_runner"
 	"github.com/cloudfoundry/gunk/localip"
-	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
 	"github.com/cloudfoundry/storeadapter/workerpool"
 	uuid "github.com/nu7hatch/gouuid"
 	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
-	"github.com/tedsuo/ifrit/grouper"
 	"github.com/tedsuo/ifrit/http_server"
 	"github.com/tedsuo/ifrit/sigmon"
 )
@@ -93,43 +91,28 @@ func main() {
 	flag.Parse()
 
 	logger := cf_lager.New("file-server")
-	bbs := initializeFileServerBBS(logger)
-
 	cf_debug_server.Run()
 
-	group := grouper.EnvokeGroup(grouper.RunGroup{
-		"maintainer":  initializeMaintainer(logger, bbs),
-		"file server": initializeServer(logger),
+	group := group_runner.New([]group_runner.Member{
+		{"file server", initializeServer(logger)},
+		{"maintainer", initializeHeartbeater(logger)},
 	})
-	monitor := ifrit.Envoke(sigmon.New(group))
 
+	monitor := ifrit.Envoke(sigmon.New(ifrit.Envoke(group)))
 	logger.Info("ready")
 
-	monitorEnded := monitor.Wait()
-	workerEnded := group.Exits()
-
-	for {
-		select {
-		case member := <-workerEnded:
-			logger.Info(fmt.Sprintf("%s exited", member.Name))
-			monitor.Signal(syscall.SIGTERM)
-
-		case err := <-monitorEnded:
-			if err != nil {
-				logger.Fatal("failed", err)
-			}
-			os.Exit(0)
-		}
+	err := <-monitor.Wait()
+	if err != nil {
+		logger.Fatal("exited-with-failure", err)
 	}
 }
 
-func initializeMaintainer(logger lager.Logger, bbs Bbs.FileServerBBS) *maintain.Maintainer {
+func initializeHeartbeater(logger lager.Logger) heartbeater.Heartbeater {
 	if *serverAddress == "" {
 		var err error
 		*serverAddress, err = localip.LocalIP()
 		if err != nil {
-			logger.Error("obtaining-local-ip-failed", err)
-			os.Exit(1)
+			logger.Fatal("obtaining-local-ip-failed", err)
 		}
 	}
 
@@ -138,11 +121,20 @@ func initializeMaintainer(logger lager.Logger, bbs Bbs.FileServerBBS) *maintain.
 
 	id, err := uuid.NewV4()
 	if err != nil {
-		logger.Error("create-uuid-failed", err)
-		os.Exit(1)
+		logger.Fatal("create-uuid-failed", err)
 	}
 
-	return maintain.New(url, id.String(), bbs, logger, *heartbeatInterval)
+	etcdAdapter := etcdstoreadapter.NewETCDStoreAdapter(
+		strings.Split(*etcdCluster, ","),
+		workerpool.NewWorkerPool(10),
+	)
+
+	err = etcdAdapter.Connect()
+	if err != nil {
+		logger.Fatal("failed-to-connect-to-etcd", err)
+	}
+
+	return heartbeater.New(etcdAdapter, shared.FileServerSchemaPath(id.String()), url, *heartbeatInterval, logger)
 }
 
 func initializeServer(logger lager.Logger) ifrit.Runner {
@@ -177,18 +169,4 @@ func initializeServer(logger lager.Logger) ifrit.Runner {
 
 	address := fmt.Sprintf(":%d", *serverPort)
 	return http_server.New(address, router)
-}
-
-func initializeFileServerBBS(logger lager.Logger) Bbs.FileServerBBS {
-	etcdAdapter := etcdstoreadapter.NewETCDStoreAdapter(
-		strings.Split(*etcdCluster, ","),
-		workerpool.NewWorkerPool(10),
-	)
-
-	err := etcdAdapter.Connect()
-	if err != nil {
-		logger.Fatal("failed-to-connect-to-etcd", err)
-	}
-
-	return Bbs.NewFileServerBBS(etcdAdapter, timeprovider.NewTimeProvider(), logger)
 }
