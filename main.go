@@ -98,7 +98,7 @@ func main() {
 		{"maintainer", initializeHeartbeater(logger)},
 	})
 
-	monitor := ifrit.Envoke(sigmon.New(ifrit.Envoke(group)))
+	monitor := ifrit.Envoke(sigmon.New(group))
 	logger.Info("ready")
 
 	err := <-monitor.Wait()
