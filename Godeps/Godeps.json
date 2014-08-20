@@ -20,23 +20,23 @@
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/inigo/fake_cc",
-			"Rev": "f85fbf7417d187dda3bd21380f46646822476213"
+			"Rev": "1ca95ba3159b814dfad0d70e143bea08d2598619"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/bbs",
-			"Rev": "538875d73b153d53c129dbc7085206853785fdf9"
+			"Rev": "4664f1dff19485bee39602bf645711ba2a4d14fd"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/heartbeater",
-			"Rev": "538875d73b153d53c129dbc7085206853785fdf9"
+			"Rev": "4664f1dff19485bee39602bf645711ba2a4d14fd"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/models",
-			"Rev": "538875d73b153d53c129dbc7085206853785fdf9"
+			"Rev": "4664f1dff19485bee39602bf645711ba2a4d14fd"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/router",
-			"Rev": "538875d73b153d53c129dbc7085206853785fdf9"
+			"Rev": "4664f1dff19485bee39602bf645711ba2a4d14fd"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/gunk/group_runner",
@@ -77,8 +77,8 @@
 		},
 		{
 			"ImportPath": "github.com/onsi/ginkgo",
-			"Comment": "v1.1.0-1-g32204a3",
-			"Rev": "32204a3eab0576cbea19f5ff8b27d3a928647ea6"
+			"Comment": "v1.1.0-3-gd79a7e7",
+			"Rev": "d79a7e77e6d3738a0e83e9f6564a1aa1dfcbfeaa"
 		},
 		{
 			"ImportPath": "github.com/onsi/gomega",
@@ -87,7 +87,7 @@
 		},
 		{
 			"ImportPath": "github.com/pivotal-golang/lager",
-			"Rev": "ada65d2c262ba5474d357bf57bc0f8b8deaa9196"
+			"Rev": "24bc7249ba26ad2f1493363b9dcedf86023f47d7"
 		},
 		{
 			"ImportPath": "github.com/tedsuo/ifrit",
