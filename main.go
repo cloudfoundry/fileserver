@@ -10,11 +10,11 @@ import (
 	"github.com/cloudfoundry-incubator/cf-debug-server"
 	"github.com/cloudfoundry-incubator/cf-lager"
 	"github.com/cloudfoundry-incubator/file-server/handlers"
-	"github.com/cloudfoundry-incubator/runtime-schema/bbs/shared"
-	"github.com/cloudfoundry-incubator/runtime-schema/heartbeater"
+	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	Router "github.com/cloudfoundry-incubator/runtime-schema/router"
 	"github.com/cloudfoundry/gunk/group_runner"
 	"github.com/cloudfoundry/gunk/localip"
+	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
 	"github.com/cloudfoundry/storeadapter/workerpool"
 	uuid "github.com/nu7hatch/gouuid"
@@ -104,7 +104,19 @@ func main() {
 	}
 }
 
-func initializeHeartbeater(logger lager.Logger) heartbeater.Heartbeater {
+func initializeHeartbeater(logger lager.Logger) ifrit.Runner {
+	etcdAdapter := etcdstoreadapter.NewETCDStoreAdapter(
+		strings.Split(*etcdCluster, ","),
+		workerpool.NewWorkerPool(10),
+	)
+
+	err := etcdAdapter.Connect()
+	if err != nil {
+		logger.Fatal("failed-to-connect-to-etcd", err)
+	}
+
+	bbs := Bbs.NewFileServerBBS(etcdAdapter, timeprovider.NewTimeProvider(), logger)
+
 	if *serverAddress == "" {
 		var err error
 		*serverAddress, err = localip.LocalIP()
@@ -121,17 +133,7 @@ func initializeHeartbeater(logger lager.Logger) heartbeater.Heartbeater {
 		logger.Fatal("create-uuid-failed", err)
 	}
 
-	etcdAdapter := etcdstoreadapter.NewETCDStoreAdapter(
-		strings.Split(*etcdCluster, ","),
-		workerpool.NewWorkerPool(10),
-	)
-
-	err = etcdAdapter.Connect()
-	if err != nil {
-		logger.Fatal("failed-to-connect-to-etcd", err)
-	}
-
-	return heartbeater.New(etcdAdapter, shared.FileServerSchemaPath(id.String()), url, *heartbeatInterval, logger)
+	return bbs.NewFileServerHeartbeat(url, id.String(), *heartbeatInterval)
 }
 
 func initializeServer(logger lager.Logger) ifrit.Runner {
