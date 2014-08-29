@@ -21,24 +21,27 @@ var fakeCCProcess ifrit.Process
 
 func TestFileServer(t *testing.T) {
 	RegisterFailHandler(Fail)
-
-	BeforeSuite(func() {
-		var err error
-		fileServerBinary, err = gexec.Build("github.com/cloudfoundry-incubator/file-server")
-		Ω(err).ShouldNot(HaveOccurred())
-
-		fakeCCAddress := fmt.Sprintf("127.0.0.1:%d", 6767+GinkgoParallelNode())
-		fakeCC = fake_cc.New(fakeCCAddress)
-
-		etcdRunner = etcdstorerunner.NewETCDClusterRunner(5001+GinkgoParallelNode(), 1)
-	})
-
-	AfterSuite(func() {
-		etcdRunner.Stop()
-	})
-
 	RunSpecs(t, "File Server Suite")
 }
+
+var _ = SynchronizedBeforeSuite(func() []byte {
+	fileServerPath, err := gexec.Build("github.com/cloudfoundry-incubator/file-server")
+	Ω(err).ShouldNot(HaveOccurred())
+	return []byte(fileServerPath)
+}, func(fileServerPath []byte) {
+	fakeCCAddress := fmt.Sprintf("127.0.0.1:%d", 6767+GinkgoParallelNode())
+	fakeCC = fake_cc.New(fakeCCAddress)
+
+	etcdRunner = etcdstorerunner.NewETCDClusterRunner(5001+GinkgoParallelNode(), 1)
+
+	fileServerBinary = string(fileServerPath)
+})
+
+var _ = SynchronizedAfterSuite(func() {
+	etcdRunner.Stop()
+}, func() {
+	gexec.CleanupBuildArtifacts()
+})
 
 var _ = BeforeEach(func() {
 	etcdRunner.Start()
