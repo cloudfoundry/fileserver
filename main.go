@@ -12,6 +12,7 @@ import (
 	"github.com/cloudfoundry-incubator/file-server/handlers"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	Router "github.com/cloudfoundry-incubator/runtime-schema/router"
+	_ "github.com/cloudfoundry/dropsonde/autowire"
 	"github.com/cloudfoundry/gunk/group_runner"
 	"github.com/cloudfoundry/gunk/localip"
 	"github.com/cloudfoundry/gunk/timeprovider"
