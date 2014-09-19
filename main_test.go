@@ -219,44 +219,4 @@ var _ = Describe("File server", func() {
 			close(done)
 		}, 2.0)
 	})
-
-	XDescribe("when the fileserver receives SIGINT", func() {
-		var sendStarted chan struct{}
-
-		BeforeEach(func() {
-			runtime.GOMAXPROCS(8)
-			session = start("-address", "localhost")
-			sendStarted = make(chan struct{})
-			go func() {
-				defer GinkgoRecover()
-				<-sendStarted
-				time.Sleep(1000 * time.Millisecond)
-				println("******** INTERRUPT ********")
-				session.Interrupt()
-			}()
-		})
-
-		Describe("and file requests are in flight", func() {
-			var contentLength = 100000
-
-			It("completes in-flight file requests", func(done Done) {
-				close(sendStarted)
-				emitter := NewEmitter(contentLength)
-				postRequest := dropletUploadRequest(appGuid, emitter, contentLength)
-
-				client := http.Client{
-					Transport: &http.Transport{},
-				}
-
-				resp, err := client.Do(postRequest)
-				Ω(err).ShouldNot(HaveOccurred())
-				resp.Body.Close()
-
-				Ω(resp.StatusCode).Should(Equal(http.StatusCreated))
-				Ω(len(fakeCC.UploadedDroplets[appGuid])).Should(Equal(contentLength))
-
-				close(done)
-			}, 8.0)
-		})
-	})
 })
