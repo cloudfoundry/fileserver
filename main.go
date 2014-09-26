@@ -13,7 +13,6 @@ import (
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	Router "github.com/cloudfoundry-incubator/runtime-schema/router"
 	_ "github.com/cloudfoundry/dropsonde/autowire"
-	"github.com/cloudfoundry/gunk/group_runner"
 	"github.com/cloudfoundry/gunk/localip"
 	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
@@ -21,6 +20,7 @@ import (
 	uuid "github.com/nu7hatch/gouuid"
 	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
+	"github.com/tedsuo/ifrit/grouper"
 	"github.com/tedsuo/ifrit/http_server"
 	"github.com/tedsuo/ifrit/sigmon"
 )
@@ -91,7 +91,7 @@ func main() {
 	logger := cf_lager.New("file-server")
 	cf_debug_server.Run()
 
-	group := group_runner.New([]group_runner.Member{
+	group := grouper.NewOrdered(os.Interrupt, grouper.Members{
 		{"file server", initializeServer(logger)},
 		{"maintainer", initializeHeartbeater(logger)},
 	})
