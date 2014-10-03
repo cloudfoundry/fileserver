@@ -22,50 +22,28 @@ import (
 var _ = Describe("UploadDroplet", func() {
 	var (
 		fakeCloudController *ts.Server
+		ccUrl               string
 		postStatusCode      int
 		postResponseBody    string
 		uploadedBytes       []byte
 		uploadedFileName    string
 		uploadedHeaders     http.Header
+		timeClicker         chan time.Time
+		startTime           time.Time
+		endTime             time.Time
 
 		incomingRequest  *http.Request
 		outgoingResponse *httptest.ResponseRecorder
 	)
 
-	PollingResponseBody := func(jobGuid, status string, fullUrl bool) string {
-		url := urljoiner.Join("/v2/jobs", jobGuid)
-		if fullUrl {
-			url = urljoiner.Join(fakeCloudController.URL(), url)
-		}
-		return fmt.Sprintf(`
-				{
-					"metadata":{
-						"guid": "%s",
-						"url": "%s"
-					},
-					"entity": {
-						"status": "%s"
-					}
-				}
-			`, jobGuid, url, status)
-	}
-
-	VerifyPollingRequest := func(jobGuid, status string, timeClicker chan time.Time) http.HandlerFunc {
-		return ts.CombineHandlers(
-			ts.VerifyRequest("GET", urljoiner.Join("/v2/jobs/", jobGuid)),
-			ts.Respond(http.StatusOK, PollingResponseBody(jobGuid, status, false)),
-			func(w http.ResponseWriter, r *http.Request) {
-				timeClicker <- time.Now()
-			},
-		)
-	}
-
 	BeforeEach(func() {
+		timeClicker = make(chan time.Time, 4)
 		uploadedBytes = nil
 		uploadedFileName = ""
 		uploadedHeaders = nil
 
 		fakeCloudController = ts.New()
+		ccUrl = fakeCloudController.URL()
 
 		fakeCloudController.Append(ts.CombineHandlers(
 			ts.VerifyRequest("POST", "/staging/droplets/app-guid/upload", "async=true"),
@@ -102,9 +80,9 @@ var _ = Describe("UploadDroplet", func() {
 		Ω(err).ShouldNot(HaveOccurred())
 
 		outgoingResponse = httptest.NewRecorder()
-
+		startTime = time.Now()
 		r.ServeHTTP(outgoingResponse, incomingRequest)
-
+		endTime = time.Now()
 		close(done)
 	})
 
@@ -114,13 +92,22 @@ var _ = Describe("UploadDroplet", func() {
 		postResponseBody = ""
 	})
 
+	Context("uploading the file, when there is no polling", func() {
+		BeforeEach(func() {
+			postStatusCode = http.StatusCreated
+			postResponseBody = PollingResponseBody("my-job-guid", "finished", ccUrl)
+		})
+
+		It("should not wait for the polling interval", func() {
+			Ω(endTime.Sub(startTime)).Should(BeNumerically("<", 75*time.Millisecond))
+		})
+	})
+
 	Context("uploading the file, when all is well", func() {
-		var timeClicker chan time.Time
 
 		BeforeEach(func() {
 			postStatusCode = http.StatusCreated
-			postResponseBody = PollingResponseBody("my-job-guid", "queued", true)
-			timeClicker = make(chan time.Time, 3)
+			postResponseBody = PollingResponseBody("my-job-guid", "queued", ccUrl)
 			fakeCloudController.Append(
 				VerifyPollingRequest("my-job-guid", "queued", timeClicker),
 				VerifyPollingRequest("my-job-guid", "running", timeClicker),
@@ -156,12 +143,10 @@ var _ = Describe("UploadDroplet", func() {
 	})
 
 	Context("uploading the file, when the job fails", func() {
-		var timeClicker chan time.Time
 
 		BeforeEach(func() {
 			postStatusCode = http.StatusCreated
-			postResponseBody = PollingResponseBody("my-job-guid", "queued", true)
-			timeClicker = make(chan time.Time, 3)
+			postResponseBody = PollingResponseBody("my-job-guid", "queued", ccUrl)
 			fakeCloudController.Append(
 				VerifyPollingRequest("my-job-guid", "queued", timeClicker),
 				VerifyPollingRequest("my-job-guid", "running", timeClicker),
@@ -182,3 +167,31 @@ var _ = Describe("UploadDroplet", func() {
 	ItFailsWhenTheContentLengthIsMissing(&incomingRequest, &outgoingResponse, &fakeCloudController)
 	ItHandlesCCFailures(&postStatusCode, &outgoingResponse, &fakeCloudController)
 })
+
+func PollingResponseBody(jobGuid, status string, baseUrl string) string {
+	url := urljoiner.Join("/v2/jobs", jobGuid)
+	if baseUrl != "" {
+		url = urljoiner.Join(baseUrl, url)
+	}
+	return fmt.Sprintf(`
+				{
+					"metadata":{
+						"guid": "%s",
+						"url": "%s"
+					},
+					"entity": {
+						"status": "%s"
+					}
+				}
+			`, jobGuid, url, status)
+}
+
+func VerifyPollingRequest(jobGuid, status string, timeClicker chan time.Time) http.HandlerFunc {
+	return ts.CombineHandlers(
+		ts.VerifyRequest("GET", urljoiner.Join("/v2/jobs/", jobGuid)),
+		ts.Respond(http.StatusOK, PollingResponseBody(jobGuid, status, "")),
+		func(w http.ResponseWriter, r *http.Request) {
+			timeClicker <- time.Now()
+		},
+	)
+}

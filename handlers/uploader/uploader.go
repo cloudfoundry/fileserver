@@ -89,24 +89,24 @@ func (u *httpUploader) Poll(res *http.Response, closeChan <-chan bool, interval 
 	}
 
 	for {
+		switch body.Entity.Status {
+		case JOB_QUEUED, JOB_RUNNING:
+		case JOB_FINISHED:
+			return nil
+		case JOB_FAILED:
+			return fmt.Errorf("upload job failed")
+		default:
+			return fmt.Errorf("unknown job status: %s", body.Entity.Status)
+		}
 		select {
 		case <-ticker.C:
-			switch body.Entity.Status {
-			case JOB_QUEUED, JOB_RUNNING:
-				res, err := u.client.Get(body.Metadata.Url)
-				if err != nil {
-					return err
-				}
-				body, err = u.parsePollingResponse(res)
-				if err != nil {
-					return err
-				}
-			case JOB_FINISHED:
-				return nil
-			case JOB_FAILED:
-				return fmt.Errorf("upload job failed")
-			default:
-				return fmt.Errorf("unknown job status: %s", body.Entity.Status)
+			res, err := u.client.Get(body.Metadata.Url)
+			if err != nil {
+				return err
+			}
+			body, err = u.parsePollingResponse(res)
+			if err != nil {
+				return err
 			}
 		case <-closeChan:
 			return fmt.Errorf("upstream request was cancelled")
