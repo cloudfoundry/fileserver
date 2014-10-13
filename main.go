@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -86,6 +87,8 @@ var ccJobPollingInterval = flag.Duration(
 )
 
 func main() {
+	runtime.GOMAXPROCS(runtime.NumCPU())
+
 	flag.Parse()
 
 	logger := cf_lager.New("file-server")
