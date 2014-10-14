@@ -1,15 +1,16 @@
 package uploader
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"time"
 
 	"github.com/cloudfoundry-incubator/file-server/multipart"
-	"github.com/cloudfoundry/gunk/http_client"
 	"github.com/cloudfoundry/gunk/urljoiner"
 )
 
@@ -26,11 +27,25 @@ type httpUploader struct {
 }
 
 func New(baseUrl, username, password string, skipCertVerification bool) Uploader {
+	transport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		Dial: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).Dial,
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: skipCertVerification,
+		},
+		TLSHandshakeTimeout: 10 * time.Second,
+	}
+
 	return &httpUploader{
 		baseUrl:  baseUrl,
 		username: username,
 		password: password,
-		client:   http_client.New(skipCertVerification),
+		client: &http.Client{
+			Transport: transport,
+		},
 	}
 }
 

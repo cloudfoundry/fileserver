@@ -1,24 +1,40 @@
 package download_build_artifacts
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"strconv"
+	"time"
 
-	"github.com/cloudfoundry/gunk/http_client"
 	"github.com/cloudfoundry/gunk/urljoiner"
 	"github.com/pivotal-golang/lager"
 )
 
 func New(addr, username, password string, skipCertVerification bool, logger lager.Logger) http.Handler {
+	transport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		Dial: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).Dial,
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: skipCertVerification,
+		},
+		TLSHandshakeTimeout: 10 * time.Second,
+	}
+
 	return &buildArtifactDownloader{
 		addr:     addr,
 		username: username,
 		password: password,
-		client:   http_client.New(skipCertVerification),
-		logger:   logger,
+		client: &http.Client{
+			Transport: transport,
+		},
+		logger: logger,
 	}
 }
 
