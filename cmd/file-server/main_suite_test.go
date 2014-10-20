@@ -25,7 +25,7 @@ func TestFileServer(t *testing.T) {
 }
 
 var _ = SynchronizedBeforeSuite(func() []byte {
-	fileServerPath, err := gexec.Build("github.com/cloudfoundry-incubator/file-server")
+	fileServerPath, err := gexec.Build("github.com/cloudfoundry-incubator/file-server/cmd/file-server")
 	Ω(err).ShouldNot(HaveOccurred())
 	return []byte(fileServerPath)
 }, func(fileServerPath []byte) {
