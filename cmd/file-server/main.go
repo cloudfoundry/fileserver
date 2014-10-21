@@ -16,8 +16,8 @@ import (
 	_ "github.com/cloudfoundry/dropsonde/autowire"
 	"github.com/cloudfoundry/gunk/localip"
 	"github.com/cloudfoundry/gunk/timeprovider"
+	"github.com/cloudfoundry/gunk/workpool"
 	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
-	"github.com/cloudfoundry/storeadapter/workerpool"
 	uuid "github.com/nu7hatch/gouuid"
 	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
@@ -111,7 +111,7 @@ func main() {
 func initializeHeartbeater(logger lager.Logger) ifrit.Runner {
 	etcdAdapter := etcdstoreadapter.NewETCDStoreAdapter(
 		strings.Split(*etcdCluster, ","),
-		workerpool.NewWorkerPool(10),
+		workpool.NewWorkPool(10),
 	)
 
 	err := etcdAdapter.Connect()
