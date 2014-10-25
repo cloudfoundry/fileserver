@@ -11,26 +11,23 @@ import (
 	"time"
 
 	"github.com/cloudfoundry-incubator/file-server/multipart"
-	"github.com/cloudfoundry/gunk/urljoiner"
 )
 
 type Uploader interface {
-	Upload(url, filename string, r *http.Request) (*http.Response, error)
-	Poll(res *http.Response, closeChan <-chan bool, interval time.Duration) error
+	Upload(url *url.URL, filename string, r *http.Request) (*http.Response, *url.URL, error)
+	Poll(url *url.URL, res *http.Response, closeChan <-chan bool, interval time.Duration) error
 }
 
 type httpUploader struct {
-	baseUrl  string
-	username string
-	password string
-	client   *http.Client
+	baseUrl *url.URL
+	client  *http.Client
 }
 
-func New(baseUrl, username, password string, skipCertVerification bool) Uploader {
+func New(baseUrl *url.URL, skipCertVerification bool) Uploader {
 	transport := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		Dial: (&net.Dialer{
-			Timeout:   30 * time.Second,
+			Timeout:   10 * time.Second,
 			KeepAlive: 30 * time.Second,
 		}).Dial,
 		TLSClientConfig: &tls.Config{
@@ -40,9 +37,7 @@ func New(baseUrl, username, password string, skipCertVerification bool) Uploader
 	}
 
 	return &httpUploader{
-		baseUrl:  baseUrl,
-		username: username,
-		password: password,
+		baseUrl: baseUrl,
 		client: &http.Client{
 			Transport: transport,
 		},
@@ -53,33 +48,77 @@ var headersToForward = []string{
 	"Content-MD5",
 }
 
-func (u *httpUploader) Upload(url, filename string, r *http.Request) (*http.Response, error) {
-	defer r.Body.Close()
+func (u *httpUploader) Upload(primaryUrl *url.URL, filename string, r *http.Request) (*http.Response, *url.URL, error) {
 	if r.ContentLength <= 0 {
-		return &http.Response{StatusCode: http.StatusLengthRequired}, fmt.Errorf("Missing Content Length")
+		return &http.Response{StatusCode: http.StatusLengthRequired}, nil, fmt.Errorf("Missing Content Length")
 	}
+	defer r.Body.Close()
 
-	uploadReq, err := multipart.NewRequestFromReader(urljoiner.Join(u.baseUrl, url), r.ContentLength, r.Body, "upload[droplet]", filename)
+	uploadReq, err := multipart.NewRequestFromReader(r.ContentLength, r.Body, "upload[droplet]", filename)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	uploadReq.SetBasicAuth(u.username, u.password)
-
 	for _, headerName := range headersToForward {
 		uploadReq.Header.Set(headerName, r.Header.Get(headerName))
 	}
 
-	uploadResp, err := u.client.Do(uploadReq)
+	// try the fast path
+	uploadReq.URL = primaryUrl
+	if primaryUrl.User != nil {
+		if password, set := primaryUrl.User.Password(); set {
+			uploadReq.SetBasicAuth(primaryUrl.User.Username(), password)
+		}
+	}
+
+	rsp, err := u.do(uploadReq)
+	if err == nil {
+		return rsp, uploadReq.URL, err
+	}
+
+	// not a connect (dial) error
+	var nestedErr error = err
+	if urlErr, ok := err.(*url.Error); ok {
+		nestedErr = urlErr.Err
+	}
+	if netErr, ok := nestedErr.(*net.OpError); !ok || netErr.Op != "dial" {
+		return rsp, nil, err
+	}
+
+	// try the slow path
+	uploadReq, err = multipart.NewRequestFromReader(r.ContentLength, r.Body, "upload[droplet]", filename)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	uploadReq.URL.Scheme = u.baseUrl.Scheme
+	uploadReq.URL.Host = u.baseUrl.Host
+	if u.baseUrl.User != nil {
+		if password, set := u.baseUrl.User.Password(); set {
+			uploadReq.URL.User = u.baseUrl.User
+			uploadReq.SetBasicAuth(u.baseUrl.User.Username(), password)
+		}
+	}
+	uploadReq.URL.Path = primaryUrl.Path
+	uploadReq.URL.RawQuery = primaryUrl.RawQuery
+
+	rsp, err = u.do(uploadReq)
+	return rsp, uploadReq.URL, err
+}
+
+func (u *httpUploader) do(req *http.Request) (*http.Response, error) {
+	rsp, err := u.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 
-	if uploadResp.StatusCode > 203 {
-		respBody, _ := ioutil.ReadAll(uploadResp.Body)
-		return uploadResp, fmt.Errorf("Got status: %d\n%s", uploadResp.StatusCode, string(respBody))
+	switch rsp.StatusCode {
+	case http.StatusOK, http.StatusCreated:
+		return rsp, nil
 	}
 
-	return uploadResp, nil
+	respBody, _ := ioutil.ReadAll(rsp.Body)
+	rsp.Body.Close()
+	return rsp, fmt.Errorf("status code: %d\n%s", rsp.StatusCode, string(respBody))
 }
 
 // CLOUD CONTROLLER POLLING HELPERS
@@ -94,14 +133,14 @@ const (
 	JOB_FINISHED = "finished"
 )
 
-func (u *httpUploader) Poll(res *http.Response, closeChan <-chan bool, interval time.Duration) error {
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-
+func (u *httpUploader) Poll(target *url.URL, res *http.Response, closeChan <-chan bool, interval time.Duration) error {
 	body, err := u.parsePollingResponse(res)
 	if err != nil {
 		return err
 	}
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
 
 	for {
 		switch body.Entity.Status {
@@ -113,12 +152,23 @@ func (u *httpUploader) Poll(res *http.Response, closeChan <-chan bool, interval 
 		default:
 			return fmt.Errorf("unknown job status: %s", body.Entity.Status)
 		}
+
 		select {
 		case <-ticker.C:
-			res, err := u.client.Get(body.Metadata.Url)
+			pollingUrl, err := url.Parse(body.Metadata.Url)
 			if err != nil {
 				return err
 			}
+
+			if pollingUrl.Host == "" {
+				pollingUrl.Scheme = target.Scheme
+				pollingUrl.Host = target.Host
+			}
+			res, err := u.client.Get(pollingUrl.String())
+			if err != nil {
+				return err
+			}
+
 			body, err = u.parsePollingResponse(res)
 			if err != nil {
 				return err
@@ -133,17 +183,7 @@ func (u *httpUploader) parsePollingResponse(res *http.Response) (pollingResponse
 	body := pollingResponseBody{}
 	err := json.NewDecoder(res.Body).Decode(&body)
 	res.Body.Close()
-	if err != nil {
-		return body, err
-	}
-	pollingUrl, err := url.Parse(body.Metadata.Url)
-	if err != nil {
-		return body, err
-	}
-	if pollingUrl.Host == "" {
-		body.Metadata.Url = urljoiner.Join(u.baseUrl, body.Metadata.Url)
-	}
-	return body, nil
+	return body, err
 }
 
 type pollingResponseBody struct {

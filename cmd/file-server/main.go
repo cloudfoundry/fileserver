@@ -82,7 +82,7 @@ var skipCertVerify = flag.Bool(
 
 var ccJobPollingInterval = flag.Duration(
 	"ccJobPollingInterval",
-	100*time.Millisecond,
+	1*time.Second,
 	"the interval between job polling requests",
 )
 
@@ -99,7 +99,7 @@ func main() {
 		{"maintainer", initializeHeartbeater(logger)},
 	})
 
-	monitor := ifrit.Envoke(sigmon.New(group))
+	monitor := ifrit.Invoke(sigmon.New(group))
 	logger.Info("ready")
 
 	err := <-monitor.Wait()

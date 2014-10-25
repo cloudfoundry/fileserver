@@ -14,6 +14,7 @@ import (
 	"time"
 
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
+	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/runtime-schema/router"
 	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/cloudfoundry/gunk/urljoiner"
@@ -79,14 +80,25 @@ var _ = Describe("File server", func() {
 	}
 
 	dropletUploadRequest := func(appGuid string, body io.Reader, contentLength int) *http.Request {
+		ccUrl, err := url.Parse(fakeCC.Address())
+		Ω(err).ShouldNot(HaveOccurred())
+		ccUrl.User = url.UserPassword(fakeCC.Username(), fakeCC.Password())
+		ccUrl.Path = urljoiner.Join("staging", "droplets", appGuid, "upload")
+		v := url.Values{"async": []string{"true"}}
+		ccUrl.RawQuery = v.Encode()
+
 		route, ok := router.NewFileServerRoutes().RouteForHandler(router.FS_UPLOAD_DROPLET)
 		Ω(ok).Should(BeTrue())
 
 		path, err := route.PathWithParams(map[string]string{"guid": appGuid})
 		Ω(err).ShouldNot(HaveOccurred())
-		url := urljoiner.Join(address, path)
 
-		postRequest, err := http.NewRequest("POST", url, body)
+		u, err := url.Parse(urljoiner.Join(address, path))
+		Ω(err).ShouldNot(HaveOccurred())
+		v = url.Values{models.CcDropletUploadUriKey: []string{ccUrl.String()}}
+		u.RawQuery = v.Encode()
+
+		postRequest, err := http.NewRequest("POST", u.String(), body)
 		Ω(err).ShouldNot(HaveOccurred())
 		postRequest.ContentLength = int64(contentLength)
 		postRequest.Header.Set("Content-Type", "application/octet-stream")
@@ -206,7 +218,7 @@ var _ = Describe("File server", func() {
 			session = start("-address", "localhost")
 		})
 
-		It("should upload the file...", func(done Done) {
+		It("should upload the file...", func() {
 			emitter := NewEmitter(contentLength)
 			postRequest := dropletUploadRequest(appGuid, emitter, contentLength)
 			resp, err := http.DefaultClient.Do(postRequest)
@@ -215,7 +227,6 @@ var _ = Describe("File server", func() {
 
 			Ω(resp.StatusCode).Should(Equal(http.StatusCreated))
 			Ω(len(fakeCC.UploadedDroplets[appGuid])).Should(Equal(contentLength))
-			close(done)
-		}, 2.0)
+		})
 	})
 })

@@ -1,17 +1,19 @@
 package upload_droplet
 
 import (
+	"errors"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/cloudfoundry-incubator/file-server/handlers/uploader"
-	"github.com/cloudfoundry/gunk/urljoiner"
+	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/pivotal-golang/lager"
 )
 
-func New(addr, username, password string, pollingInterval time.Duration, skipCertVerification bool, logger lager.Logger) http.Handler {
+func New(addr *url.URL, pollingInterval time.Duration, skipCertVerification bool, logger lager.Logger) http.Handler {
 	return &dropletUploader{
-		uploader:        uploader.New(addr, username, password, skipCertVerification),
+		uploader:        uploader.New(addr, skipCertVerification),
 		pollingInterval: pollingInterval,
 		logger:          logger,
 	}
@@ -24,40 +26,64 @@ type dropletUploader struct {
 }
 
 func (h *dropletUploader) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	requestLogger := h.logger.Session("droplet.upload")
+	// cloud controller droplet upload url
+	// TODO: this should be refactored into runtime-schema/router if
+	// we continue to make cloud controller endpoints
+	uploadUri := r.URL.Query().Get(models.CcDropletUploadUriKey)
+	if uploadUri == "" {
+		err := errors.New("missing " + models.CcDropletUploadUriKey + " parameter")
+		handleError(w, r, err, nil, requestLogger)
+		return
+	}
+
+	u, err := url.Parse(uploadUri)
+	//u := urljoiner.Join("staging", "droplets", r.FormValue(":guid"), "upload?async=true")
+	if err != nil {
+		handleError(w, r, err, nil, requestLogger)
+		return
+	}
+
+	if u.RawQuery == "" {
+		u.RawQuery = "async=true"
+	} else {
+		v := u.Query()
+		v.Set("async", "true")
+		u.RawQuery = v.Encode()
+	}
+
+	requestLogger.Info("start", lager.Data{
+		"url":            u,
+		"content-length": r.ContentLength,
+	})
+
+	uploadStart := time.Now()
+	uploadResp, pollUrl, err := h.uploader.Upload(u, "droplet.tgz", r)
+	if err != nil {
+		handleError(w, r, err, uploadResp, requestLogger)
+		return
+	}
+	uploadEnd := time.Now()
+
 	var closeChan <-chan bool
 	closeNotifier, ok := w.(http.CloseNotifier)
 	if ok {
 		closeChan = closeNotifier.CloseNotify()
 	}
 
-	// cloud controller droplet upload url
-	// TODO: this should be refactored into runtime-schema/router if
-	// we continue to make cloud controller endpoints
-	url := urljoiner.Join("staging", "droplets", r.FormValue(":guid"), "upload?async=true")
-
-	requestLogger := h.logger.Session("droplet.upload")
-
-	requestLogger.Info("start", lager.Data{
-		"url":            url,
-		"content-length": r.ContentLength,
-	})
-
-	uploadResp, err := h.uploader.Upload(url, "droplet.tgz", r)
-	if err != nil {
-		handleError(w, r, err, uploadResp, requestLogger)
-		return
-	}
-
-	err = h.uploader.Poll(uploadResp, closeChan, h.pollingInterval)
+	err = h.uploader.Poll(pollUrl, uploadResp, closeChan, h.pollingInterval)
 	if err != nil {
 		handleError(w, r, err, nil, requestLogger)
 		return
 	}
+	pollEnd := time.Now()
 
 	w.WriteHeader(http.StatusCreated)
 	requestLogger.Info("success", lager.Data{
-		"url":            url,
+		"url":            u,
 		"content-length": r.ContentLength,
+		"upload-time":    uploadEnd.Sub(uploadStart).String(),
+		"poll-time":      pollEnd.Sub(uploadEnd).String(),
 	})
 }
 

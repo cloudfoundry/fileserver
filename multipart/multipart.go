@@ -9,7 +9,7 @@ import (
 
 // FILE UPLOAD HELPERS
 
-func NewRequestFromReader(url string, contentLength int64, body io.Reader, formField string, fileName string) (*http.Request, error) {
+func NewRequestFromReader(contentLength int64, body io.Reader, formField string, fileName string) (*http.Request, error) {
 	pipeReader, pipeWriter := io.Pipe()
 
 	multipartLength, multipartBoundary, err := computeMultipartFormLength(formField, fileName)
@@ -38,10 +38,11 @@ func NewRequestFromReader(url string, contentLength int64, body io.Reader, formF
 		err = multipartWriter.Close()
 	}()
 
-	uploadReq, err := http.NewRequest("POST", url, pipeReader)
+	uploadReq, err := http.NewRequest("POST", "", pipeReader)
 	if err != nil {
 		return nil, err
 	}
+
 	uploadReq.Header.Set("Content-Type", multipartWriter.FormDataContentType())
 	uploadReq.ContentLength = contentLength + multipartLength
 

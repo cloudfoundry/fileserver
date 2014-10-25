@@ -1,16 +1,18 @@
 package upload_build_artifacts
 
 import (
+	"errors"
 	"net/http"
+	"net/url"
 
 	"github.com/cloudfoundry-incubator/file-server/handlers/uploader"
-	"github.com/cloudfoundry/gunk/urljoiner"
+	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/pivotal-golang/lager"
 )
 
-func New(addr, username, password string, skipCertVerification bool, logger lager.Logger) http.Handler {
+func New(addr *url.URL, skipCertVerification bool, logger lager.Logger) http.Handler {
 	return &buildArtifactUploader{
-		uploader: uploader.New(addr, username, password, skipCertVerification),
+		uploader: uploader.New(addr, skipCertVerification),
 		logger:   logger,
 	}
 }
@@ -21,21 +23,34 @@ type buildArtifactUploader struct {
 }
 
 func (h *buildArtifactUploader) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	requestLogger := h.logger.Session("build-artifacts.upload")
+
 	// cloud controller buildpack cache upload url
 	// TODO: this should be refactored into runtime-schema/router if
 	// we continue to make cloud controller endpoints
-	url := urljoiner.Join("staging", "buildpack_cache", r.FormValue(":app_guid"), "upload")
+	uploadUri := r.URL.Query().Get(models.CcBuildArtifactsUploadUriKey)
+	if uploadUri == "" {
+		err := errors.New("missing " + models.CcBuildArtifactsUploadUriKey + " parameter")
+		handleError(w, r, err, nil, requestLogger)
+		return
+	}
 
-	requestLogger := h.logger.Session("build-artifacts.upload")
+	url, err := url.Parse(uploadUri)
+	// url.Path = urljoiner.Join("staging", "buildpack_cache", r.FormValue(":app_guid"), "upload")
+	if err != nil {
+		handleError(w, r, err, nil, requestLogger)
+		return
+	}
 
 	requestLogger.Info("start", lager.Data{
 		"url":            url,
 		"content-length": r.ContentLength,
 	})
 
-	uploadResp, err := h.uploader.Upload(url, "buildpack_cache.tgz", r)
+	uploadResp, _, err := h.uploader.Upload(url, "buildpack_cache.tgz", r)
 	if err != nil {
 		handleError(w, r, err, uploadResp, requestLogger)
+		return
 	}
 
 	w.WriteHeader(http.StatusOK)
