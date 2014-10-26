@@ -4,7 +4,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/cloudfoundry-incubator/file-server/handlers/download_build_artifacts"
 	"github.com/cloudfoundry-incubator/file-server/handlers/static"
 	"github.com/cloudfoundry-incubator/file-server/handlers/upload_build_artifacts"
 	"github.com/cloudfoundry-incubator/file-server/handlers/upload_droplet"
@@ -34,9 +33,8 @@ func New(c Config, logger lager.Logger) router.Handlers {
 
 	u.User = url.UserPassword(c.CCUsername, c.CCPassword)
 	return router.Handlers{
-		router.FS_STATIC:                   static.New(c.StaticDirectory, staticRoute.Path, logger),
-		router.FS_UPLOAD_DROPLET:           upload_droplet.New(u, c.CCJobPollingInterval, c.SkipCertVerify, logger),
-		router.FS_UPLOAD_BUILD_ARTIFACTS:   upload_build_artifacts.New(u, c.SkipCertVerify, logger),
-		router.FS_DOWNLOAD_BUILD_ARTIFACTS: download_build_artifacts.New(c.CCAddress, c.CCUsername, c.CCPassword, c.SkipCertVerify, logger),
+		router.FS_STATIC:                 static.New(c.StaticDirectory, staticRoute.Path, logger),
+		router.FS_UPLOAD_DROPLET:         upload_droplet.New(u, c.CCJobPollingInterval, c.SkipCertVerify, logger),
+		router.FS_UPLOAD_BUILD_ARTIFACTS: upload_build_artifacts.New(u, c.SkipCertVerify, logger),
 	}
 }
