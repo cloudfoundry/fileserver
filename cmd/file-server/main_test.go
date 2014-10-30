@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -13,17 +12,14 @@ import (
 	"strconv"
 	"time"
 
-	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/runtime-schema/router"
-	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/cloudfoundry/gunk/urljoiner"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/config"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
-	"github.com/pivotal-golang/lager/lagertest"
 )
 
 type ByteEmitter struct {
@@ -50,7 +46,6 @@ func (emitter *ByteEmitter) Read(p []byte) (n int, err error) {
 
 var _ = Describe("File server", func() {
 	var (
-		bbs             *Bbs.BBS
 		port            int
 		address         string
 		servedDirectory string
@@ -64,7 +59,6 @@ var _ = Describe("File server", func() {
 			extras,
 			"-staticDirectory", servedDirectory,
 			"-port", strconv.Itoa(port),
-			"-etcdCluster", etcdRunner.NodeURLS()[0],
 			"-ccAddress", fakeCC.Address(),
 			"-ccUsername", fakeCC.Username(),
 			"-ccPassword", fakeCC.Password(),
@@ -107,7 +101,6 @@ var _ = Describe("File server", func() {
 	}
 
 	BeforeEach(func() {
-		bbs = Bbs.NewBBS(etcdRunner.Adapter(), timeprovider.NewTimeProvider(), lagertest.NewTestLogger("test"))
 		servedDirectory, err = ioutil.TempDir("", "file_server-test")
 		Ω(err).ShouldNot(HaveOccurred())
 		port = 8182 + config.GinkgoConfig.ParallelNode
@@ -117,47 +110,6 @@ var _ = Describe("File server", func() {
 	AfterEach(func() {
 		session.Kill().Wait()
 		os.RemoveAll(servedDirectory)
-	})
-
-	Context("when file server exits", func() {
-		It("should remove its presence", func() {
-			session = start("-address", "localhost", "-heartbeatInterval", "10s")
-
-			_, err = bbs.GetAvailableFileServer()
-			Ω(err).ShouldNot(HaveOccurred())
-
-			session.Interrupt()
-			Eventually(session).Should(gexec.Exit(0))
-
-			_, err = bbs.GetAvailableFileServer()
-			Ω(err).Should(HaveOccurred())
-		})
-	})
-
-	Context("when it fails to maintain presence", func() {
-		BeforeEach(func() {
-			session = start("-address", "localhost", "-heartbeatInterval", "1s")
-		})
-
-		It("should retry", func() {
-			_, err := bbs.GetAvailableFileServer()
-			Ω(err).ShouldNot(HaveOccurred())
-
-			etcdRunner.Stop()
-
-			Eventually(func() error {
-				_, err := bbs.GetAvailableFileServer()
-				return err
-			}).Should(HaveOccurred())
-
-			Consistently(session, 1).ShouldNot(gexec.Exit())
-
-			etcdRunner.Start()
-			Eventually(func() error {
-				_, err := bbs.GetAvailableFileServer()
-				return err
-			}, 3).ShouldNot(HaveOccurred())
-		})
 	})
 
 	Context("when started without any arguments", func() {
@@ -174,13 +126,6 @@ var _ = Describe("File server", func() {
 			ioutil.WriteFile(filepath.Join(servedDirectory, "test"), []byte("hello"), os.ModePerm)
 		})
 
-		It("should maintain presence in ETCD", func() {
-			fileServerURL, err := bbs.GetAvailableFileServer()
-			Ω(err).ShouldNot(HaveOccurred())
-
-			Ω(fileServerURL).Should(Equal(fmt.Sprintf("http://localhost:%d/", port)))
-		})
-
 		It("should return that file on GET request", func() {
 			resp, err := http.Get(fmt.Sprintf("http://localhost:%d/v1/static/test", port))
 			Ω(err).ShouldNot(HaveOccurred())
@@ -191,23 +136,6 @@ var _ = Describe("File server", func() {
 			body, err := ioutil.ReadAll(resp.Body)
 			Ω(err).ShouldNot(HaveOccurred())
 			Ω(string(body)).Should(Equal("hello"))
-		})
-	})
-
-	Context("when an address is not specified", func() {
-		It("publishes its url properly", func() {
-			session = start()
-
-			fileServerURL, err := bbs.GetAvailableFileServer()
-			Ω(err).ShouldNot(HaveOccurred())
-
-			serverURL, err := url.Parse(fileServerURL)
-			Ω(err).ShouldNot(HaveOccurred())
-
-			host, _, err := net.SplitHostPort(serverURL.Host)
-			Ω(err).ShouldNot(HaveOccurred())
-
-			Ω(host).ShouldNot(Equal(""))
 		})
 	})
 

@@ -5,20 +5,13 @@ import (
 	"fmt"
 	"os"
 	"runtime"
-	"strings"
 	"time"
 
 	"github.com/cloudfoundry-incubator/cf-debug-server"
 	"github.com/cloudfoundry-incubator/cf-lager"
 	"github.com/cloudfoundry-incubator/file-server/handlers"
-	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	Router "github.com/cloudfoundry-incubator/runtime-schema/router"
 	_ "github.com/cloudfoundry/dropsonde/autowire"
-	"github.com/cloudfoundry/gunk/localip"
-	"github.com/cloudfoundry/gunk/timeprovider"
-	"github.com/cloudfoundry/gunk/workpool"
-	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
-	uuid "github.com/nu7hatch/gouuid"
 	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
@@ -30,12 +23,6 @@ var serverAddress = flag.String(
 	"address",
 	"",
 	"Specifies the address to bind to",
-)
-
-var etcdCluster = flag.String(
-	"etcdCluster",
-	"http://127.0.0.1:4001",
-	"comma-separated list of etcd addresses (http://ip:port)",
 )
 
 var staticDirectory = flag.String(
@@ -68,12 +55,6 @@ var ccAddress = flag.String(
 	"CloudController location",
 )
 
-var heartbeatInterval = flag.Duration(
-	"heartbeatInterval",
-	60*time.Second,
-	"the interval between heartbeats for maintaining presence",
-)
-
 var skipCertVerify = flag.Bool(
 	"skipCertVerify",
 	false,
@@ -96,7 +77,6 @@ func main() {
 
 	group := grouper.NewOrdered(os.Interrupt, grouper.Members{
 		{"file server", initializeServer(logger)},
-		{"maintainer", initializeHeartbeater(logger)},
 	})
 
 	monitor := ifrit.Invoke(sigmon.New(group))
@@ -106,38 +86,6 @@ func main() {
 	if err != nil {
 		logger.Fatal("exited-with-failure", err)
 	}
-}
-
-func initializeHeartbeater(logger lager.Logger) ifrit.Runner {
-	etcdAdapter := etcdstoreadapter.NewETCDStoreAdapter(
-		strings.Split(*etcdCluster, ","),
-		workpool.NewWorkPool(10),
-	)
-
-	err := etcdAdapter.Connect()
-	if err != nil {
-		logger.Fatal("failed-to-connect-to-etcd", err)
-	}
-
-	bbs := Bbs.NewFileServerBBS(etcdAdapter, timeprovider.NewTimeProvider(), logger)
-
-	if *serverAddress == "" {
-		var err error
-		*serverAddress, err = localip.LocalIP()
-		if err != nil {
-			logger.Fatal("obtaining-local-ip-failed", err)
-		}
-	}
-
-	url := fmt.Sprintf("http://%s:%d/", *serverAddress, *serverPort)
-	logger.Info("serving-files-location", lager.Data{"url": url})
-
-	id, err := uuid.NewV4()
-	if err != nil {
-		logger.Fatal("create-uuid-failed", err)
-	}
-
-	return bbs.NewFileServerHeartbeat(url, id.String(), *heartbeatInterval)
 }
 
 func initializeServer(logger lager.Logger) ifrit.Runner {

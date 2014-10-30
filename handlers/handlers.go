@@ -12,8 +12,7 @@ import (
 )
 
 type Config struct {
-	StaticDirectory   string
-	HeartbeatInterval time.Duration
+	StaticDirectory string
 
 	CCAddress            string
 	CCUsername           string
