@@ -11,7 +11,7 @@ import (
 	"github.com/cloudfoundry-incubator/cf-lager"
 	"github.com/cloudfoundry-incubator/file-server/handlers"
 	Router "github.com/cloudfoundry-incubator/runtime-schema/router"
-	_ "github.com/cloudfoundry/dropsonde/autowire"
+	"github.com/cloudfoundry/dropsonde"
 	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
@@ -67,6 +67,18 @@ var ccJobPollingInterval = flag.Duration(
 	"the interval between job polling requests",
 )
 
+var dropsondeOrigin = flag.String(
+	"dropsondeOrigin",
+	"file_server",
+	"Origin identifier for dropsonde-emitted metrics.",
+)
+
+var dropsondeDestination = flag.String(
+	"dropsondeDestination",
+	"localhost:3457",
+	"Destination for dropsonde-emitted metrics.",
+)
+
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
@@ -74,6 +86,8 @@ func main() {
 
 	logger := cf_lager.New("file-server")
 	cf_debug_server.Run()
+
+	initializeDropsonde(logger)
 
 	group := grouper.NewOrdered(os.Interrupt, grouper.Members{
 		{"file server", initializeServer(logger)},
@@ -85,6 +99,13 @@ func main() {
 	err := <-monitor.Wait()
 	if err != nil {
 		logger.Fatal("exited-with-failure", err)
+	}
+}
+
+func initializeDropsonde(logger lager.Logger) {
+	err := dropsonde.Initialize(*dropsondeOrigin, *dropsondeDestination)
+	if err != nil {
+		logger.Error("failed to initialize dropsonde: %v", err)
 	}
 }
 
