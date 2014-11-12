@@ -1,4 +1,4 @@
-package multipart
+package uploader
 
 import (
 	"bytes"
@@ -9,7 +9,7 @@ import (
 
 // FILE UPLOAD HELPERS
 
-func NewRequestFromReader(contentLength int64, body io.Reader, formField string, fileName string) (*http.Request, error) {
+func newMultipartRequestFromReader(contentLength int64, body io.Reader, formField string, fileName string) (*http.Request, error) {
 	pipeReader, pipeWriter := io.Pipe()
 
 	multipartLength, multipartBoundary, err := computeMultipartFormLength(formField, fileName)

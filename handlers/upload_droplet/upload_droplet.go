@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/cloudfoundry-incubator/file-server/handlers/uploader"
+	"github.com/cloudfoundry-incubator/file-server/uploader"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/pivotal-golang/lager"
 )
