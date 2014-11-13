@@ -2,278 +2,178 @@ package upload_droplet_test
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"time"
 
-	"github.com/cloudfoundry-incubator/file-server/handlers"
-	"github.com/cloudfoundry-incubator/file-server/uploader"
+	"github.com/cloudfoundry-incubator/file-server/handlers/upload_droplet"
+	"github.com/cloudfoundry-incubator/file-server/uploader/fake_uploader"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
-	"github.com/cloudfoundry-incubator/runtime-schema/router"
-	"github.com/cloudfoundry/gunk/test_server"
-	"github.com/cloudfoundry/gunk/urljoiner"
-	"github.com/pivotal-golang/lager"
-
-	. "github.com/cloudfoundry-incubator/file-server/handlers/test_helpers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/pivotal-golang/lager"
 )
 
 var _ = Describe("UploadDroplet", func() {
-	var (
-		ccAddress           string
-		fakeCloudController *test_server.Server
-		primaryUrl          *url.URL
+	Describe("ServeHTTP", func() {
+		var incomingRequest *http.Request
+		var outgoingResponse *httptest.ResponseRecorder
+		var uploader fake_uploader.FakeUploader
+		var logger lager.Logger
 
-		ccUrl            string
-		postStatusCode   int
-		postResponseBody string
-		queryMatch       string
-		uploadedBytes    []byte
-		uploadedFileName string
-		uploadedHeaders  http.Header
-		timeClicker      chan time.Time
-		startTime        time.Time
-		endTime          time.Time
+		JustBeforeEach(func() {
+			logger = lager.NewLogger("fake-logger")
+			dropletUploadHandler := upload_droplet.New(&uploader, 100*time.Millisecond, logger)
 
-		incomingRequest  *http.Request
-		outgoingResponse *httptest.ResponseRecorder
-	)
-
-	BeforeEach(func() {
-		timeClicker = make(chan time.Time, 4)
-		uploadedBytes = nil
-		uploadedFileName = ""
-		uploadedHeaders = nil
-
-		fakeCloudController = test_server.New()
-		ccUrl = fakeCloudController.URL()
-
-		queryMatch = "async=true"
-
-		fakeCloudController.Append(test_server.CombineHandlers(
-			test_server.VerifyRequest("POST", "/staging/droplet/app-guid/upload"),
-			test_server.VerifyBasicAuth("bob", "password"),
-			test_server.RespondPtr(&postStatusCode, &postResponseBody),
-			func(w http.ResponseWriter, r *http.Request) {
-				Ω(r.URL.RawQuery).Should(Equal(queryMatch))
-				uploadedHeaders = r.Header
-				file, fileHeader, err := r.FormFile("upload[droplet]")
-				Ω(err).ShouldNot(HaveOccurred())
-				uploadedBytes, err = ioutil.ReadAll(file)
-				Ω(err).ShouldNot(HaveOccurred())
-				uploadedFileName = fileHeader.Filename
-				Ω(r.ContentLength).Should(BeNumerically(">", len(uploadedBytes)))
-			},
-		))
-
-		var err error
-		primaryUrl, err = url.Parse(ccUrl)
-		Ω(err).ShouldNot(HaveOccurred())
-		primaryUrl.User = url.UserPassword("bob", "password")
-		primaryUrl.Path = "/staging/droplet/app-guid/upload"
-		v := url.Values{"async": []string{"true"}}
-		primaryUrl.RawQuery = v.Encode()
-
-		buffer := bytes.NewBufferString("the file I'm uploading")
-		incomingRequest, err = http.NewRequest("POST", "", buffer)
-		incomingRequest.Header.Set("Content-MD5", "the-md5")
-
-		ccAddress = fakeCloudController.URL()
-	})
-
-	JustBeforeEach(func() {
-		logger := lager.NewLogger("fakelogger")
-
-		ccUrl, err := url.Parse(ccAddress)
-		Ω(err).ShouldNot(HaveOccurred())
-		ccUrl.User = url.UserPassword("bob", "password")
-		uploader := uploader.New(ccUrl, http.DefaultTransport)
-
-		r, err := router.NewFileServerRoutes().Router(handlers.New("", 100*time.Millisecond, uploader, logger))
-		Ω(err).ShouldNot(HaveOccurred())
-
-		u, err := url.Parse("http://file-server.com/v1/droplet/app-guid")
-		Ω(err).ShouldNot(HaveOccurred())
-		v := url.Values{models.CcDropletUploadUriKey: []string{primaryUrl.String()}}
-		u.RawQuery = v.Encode()
-		incomingRequest.URL = u
-
-		outgoingResponse = httptest.NewRecorder()
-
-		startTime = time.Now()
-		r.ServeHTTP(outgoingResponse, incomingRequest)
-		endTime = time.Now()
-	})
-
-	AfterEach(func() {
-		fakeCloudController.Close()
-		postStatusCode = 0
-		postResponseBody = ""
-	})
-
-	Context("uploading the file, when there is no polling", func() {
-		BeforeEach(func() {
-			postStatusCode = http.StatusCreated
-			postResponseBody = PollingResponseBody("my-job-guid", "finished", ccUrl)
+			outgoingResponse = httptest.NewRecorder()
+			dropletUploadHandler.ServeHTTP(outgoingResponse, incomingRequest)
 		})
 
-		It("should not wait for the polling interval", func() {
-			Ω(endTime.Sub(startTime)).Should(BeNumerically("<", 75*time.Millisecond))
-		})
-	})
-
-	Context("uploading the file, when all is well", func() {
-		BeforeEach(func() {
-			postStatusCode = http.StatusCreated
-			postResponseBody = PollingResponseBody("my-job-guid", "queued", ccUrl)
-			fakeCloudController.Append(
-				VerifyPollingRequest("my-job-guid", "queued", timeClicker),
-				VerifyPollingRequest("my-job-guid", "running", timeClicker),
-				VerifyPollingRequest("my-job-guid", "finished", timeClicker),
-			)
-		})
-
-		Context("when the primary url works", func() {
+		Context("When the request does not include a droplet upload URI", func() {
 			BeforeEach(func() {
-				ccAddress = "127.0.0.1:0"
+				var err error
+				incomingRequest, err = http.NewRequest("POST", "http://example.com", bytes.NewBufferString(""))
+				Ω(err).ShouldNot(HaveOccurred())
+
+				uploader = fake_uploader.FakeUploader{}
 			})
 
-			ItSucceeds := func() {
-				It("calls all the requests", func() {
-					Ω(fakeCloudController.ReceivedRequestsCount()).Should(Equal(4))
-
-					By("responds with 201 CREATED", func() {
-						Ω(outgoingResponse.Code).Should(Equal(http.StatusCreated))
-					})
-
-					By("forwards the content-md5 header", func() {
-						Ω(uploadedHeaders.Get("Content-MD5")).Should(Equal("the-md5"))
-					})
-
-					By("uploads the correct file", func() {
-						Ω(uploadedBytes).Should(Equal([]byte("the file I'm uploading")))
-						Ω(uploadedFileName).Should(Equal("droplet.tgz"))
-					})
-				})
-			}
-
-			ItSucceeds()
-
-			It("should wait between polls", func() {
-				var firstTime, secondTime, thirdTime time.Time
-				Eventually(timeClicker).Should(Receive(&firstTime))
-				Eventually(timeClicker).Should(Receive(&secondTime))
-				Eventually(timeClicker).Should(Receive(&thirdTime))
-
-				Ω(secondTime.Sub(firstTime)).Should(BeNumerically(">", 75*time.Millisecond))
-				Ω(thirdTime.Sub(secondTime)).Should(BeNumerically(">", 75*time.Millisecond))
+			It("responds with an error code", func() {
+				Ω(outgoingResponse.Code).Should(Equal(http.StatusInternalServerError))
 			})
 
-			Context("when async=true is not included", func() {
-				Context("no query parameters", func() {
-					BeforeEach(func() {
-						ccAddress = "127.0.0.1:0"
-						primaryUrl.RawQuery = ""
-					})
-
-					ItSucceeds()
-				})
-
-				Context("other query parameters", func() {
-					BeforeEach(func() {
-						ccAddress = "127.0.0.1:0"
-						primaryUrl.RawQuery = "a=b"
-						queryMatch = "a=b&async=true"
-					})
-
-					ItSucceeds()
-				})
+			It("does not attempt to upload", func() {
+				Ω(uploader.UploadCallCount()).Should(BeZero())
 			})
 
+			It("responds with the error message in the body", func() {
+				body, _ := outgoingResponse.Body.ReadString('\n')
+				Ω(body).Should(Equal(upload_droplet.MissingCCDropletUploadUriKeyError.Error()))
+			})
 		})
 
-		Context("when the primary url fails", func() {
+		Context("When the request includes a droplet upload URI", func() {
 			BeforeEach(func() {
-				primaryUrl.Host = "127.0.0.1:0"
+				var err error
+				incomingRequest, err = http.NewRequest(
+					"POST",
+					fmt.Sprintf("http://example.com?%s=upload-uri.com", models.CcDropletUploadUriKey),
+					bytes.NewBufferString(""),
+				)
+				Ω(err).ShouldNot(HaveOccurred())
+
+				uploader = fake_uploader.FakeUploader{}
 			})
 
-			It("falls over to the secondary url", func() {
-				Ω(fakeCloudController.ReceivedRequestsCount()).Should(Equal(4))
+			It("responds adds the async=true query parameter to the upload URI for the upload request", func() {
+				uploadUrl, _, _ := uploader.UploadArgsForCall(0)
+				Ω(uploadUrl).Should(MatchRegexp("async=true"))
+			})
+		})
 
-				By("responds with 201 CREATED", func() {
+		Context("When it fails to make the upload request to the upload URI", func() {
+			BeforeEach(func() {
+				var err error
+				incomingRequest, err = http.NewRequest(
+					"POST",
+					fmt.Sprintf("http://example.com?%s=upload-uri.com", models.CcDropletUploadUriKey),
+					bytes.NewBufferString(""),
+				)
+				Ω(err).ShouldNot(HaveOccurred())
+
+				uploader = fake_uploader.FakeUploader{}
+				uploader.UploadReturns(nil, nil, errors.New("some-error"))
+			})
+
+			It("responds with an error code", func() {
+				Ω(outgoingResponse.Code).Should(Equal(http.StatusInternalServerError))
+			})
+
+			It("responds with the error message in the body", func() {
+				body, _ := outgoingResponse.Body.ReadString('\n')
+				Ω(body).Should(Equal("some-error"))
+			})
+		})
+
+		Context("When the request to the upload URI responds with a failed status", func() {
+			BeforeEach(func() {
+				var err error
+				incomingRequest, err = http.NewRequest(
+					"POST",
+					fmt.Sprintf("http://example.com?%s=upload-uri.com", models.CcDropletUploadUriKey),
+					bytes.NewBufferString(""),
+				)
+				Ω(err).ShouldNot(HaveOccurred())
+
+				uploader = fake_uploader.FakeUploader{}
+				uploader.UploadReturns(&http.Response{StatusCode: 404}, nil, errors.New("some-error"))
+			})
+
+			It("responds with an error code", func() {
+				Ω(outgoingResponse.Code).Should(Equal(404))
+			})
+
+			It("responds with the error message in the body", func() {
+				body, _ := outgoingResponse.Body.ReadString('\n')
+				Ω(body).Should(Equal("some-error"))
+			})
+		})
+
+		Context("When the upload succeeds", func() {
+			var pollUrl *url.URL
+			var uploadResponse *http.Response
+
+			BeforeEach(func() {
+				var err error
+				incomingRequest, err = http.NewRequest(
+					"POST",
+					fmt.Sprintf("http://example.com?%s=upload-uri.com", models.CcDropletUploadUriKey),
+					bytes.NewBufferString(""),
+				)
+				Ω(err).ShouldNot(HaveOccurred())
+
+				var urlParseErr error
+				pollUrl, urlParseErr = url.Parse("http://poll-url.com")
+				Ω(urlParseErr).ShouldNot(HaveOccurred())
+				uploadResponse = &http.Response{StatusCode: http.StatusOK}
+				uploader = fake_uploader.FakeUploader{}
+				uploader.UploadReturns(uploadResponse, pollUrl, nil)
+			})
+
+			It("Polls for success of the upload", func() {
+				pollArgsURL, pollArgsUploadResponse, _, pollArgsInterval := uploader.PollArgsForCall(0)
+				Ω(pollArgsURL).Should(Equal(pollUrl))
+				Ω(pollArgsUploadResponse).Should(Equal(uploadResponse))
+				Ω(pollArgsInterval).Should(Equal(100 * time.Millisecond))
+			})
+
+			Context("When polling for success of the upload fails", func() {
+				BeforeEach(func() {
+					uploader.PollReturns(errors.New("poll-error"))
+				})
+
+				It("responds with an error code", func() {
+					Ω(outgoingResponse.Code).Should(Equal(http.StatusInternalServerError))
+				})
+
+				It("responds with the error message in the body", func() {
+					body, _ := outgoingResponse.Body.ReadString('\n')
+					Ω(body).Should(Equal("poll-error"))
+				})
+			})
+
+			Context("When polling for success of the upload succeeds", func() {
+				BeforeEach(func() {
+					uploader.PollReturns(nil)
+				})
+
+				It("responds with a status created", func() {
 					Ω(outgoingResponse.Code).Should(Equal(http.StatusCreated))
 				})
 			})
 		})
 	})
-
-	Context("uploading the file, when the job fails", func() {
-		BeforeEach(func() {
-			postStatusCode = http.StatusCreated
-			postResponseBody = PollingResponseBody("my-job-guid", "queued", ccUrl)
-			fakeCloudController.Append(
-				VerifyPollingRequest("my-job-guid", "queued", timeClicker),
-				VerifyPollingRequest("my-job-guid", "running", timeClicker),
-				VerifyPollingRequest("my-job-guid", "finished", timeClicker),
-			)
-		})
-
-		It("stops polling after the first fail", func() {
-			Ω(fakeCloudController.ReceivedRequestsCount()).Should(Equal(4))
-
-			By("responds with 201", func() {
-				Ω(outgoingResponse.Code).Should(Equal(http.StatusCreated))
-			})
-		})
-	})
-
-	ItFailsWhenTheContentLengthIsMissing(&incomingRequest, &outgoingResponse, &fakeCloudController)
-	ItHandlesCCFailures(&postStatusCode, &outgoingResponse, &fakeCloudController)
-
-	Context("when both urls fail", func() {
-		BeforeEach(func() {
-			primaryUrl.Host = "127.0.0.1:0"
-			ccAddress = "127.0.0.1:0"
-		})
-
-		It("reports a 500", func() {
-			Ω(fakeCloudController.ReceivedRequestsCount()).Should(Equal(0))
-
-			By("responds with 201", func() {
-				Ω(outgoingResponse.Code).Should(Equal(http.StatusInternalServerError))
-			})
-		})
-	})
 })
-
-func PollingResponseBody(jobGuid, status string, baseUrl string) string {
-	url := urljoiner.Join("/v2/jobs", jobGuid)
-	if baseUrl != "" {
-		url = urljoiner.Join(baseUrl, url)
-	}
-	return fmt.Sprintf(`
-				{
-					"metadata":{
-						"guid": "%s",
-						"url": "%s"
-					},
-					"entity": {
-						"status": "%s"
-					}
-				}
-			`, jobGuid, url, status)
-}
-
-func VerifyPollingRequest(jobGuid, status string, timeClicker chan time.Time) http.HandlerFunc {
-	return test_server.CombineHandlers(
-		test_server.VerifyRequest("GET", urljoiner.Join("/v2/jobs/", jobGuid)),
-		test_server.Respond(http.StatusOK, PollingResponseBody(jobGuid, status, "")),
-		func(w http.ResponseWriter, r *http.Request) {
-			timeClicker <- time.Now()
-		},
-	)
-}

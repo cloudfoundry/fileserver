@@ -2,6 +2,7 @@ package upload_droplet
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"time"
@@ -25,42 +26,46 @@ type dropletUploader struct {
 	logger          lager.Logger
 }
 
+var MissingCCDropletUploadUriKeyError = errors.New(fmt.Sprintf("missing %s parameter", models.CcDropletUploadUriKey))
+
 func (h *dropletUploader) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	requestLogger := h.logger.Session("droplet.upload")
-	// cloud controller droplet upload url
-	// TODO: this should be refactored into runtime-schema/router if
-	// we continue to make cloud controller endpoints
-	uploadUri := r.URL.Query().Get(models.CcDropletUploadUriKey)
-	if uploadUri == "" {
-		err := errors.New("missing " + models.CcDropletUploadUriKey + " parameter")
-		handleError(w, r, err, nil, requestLogger)
+
+	uploadUriParameter := r.URL.Query().Get(models.CcDropletUploadUriKey)
+	if uploadUriParameter == "" {
+		requestLogger.Error("failed", MissingCCDropletUploadUriKeyError)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(MissingCCDropletUploadUriKeyError.Error()))
 		return
 	}
 
-	u, err := url.Parse(uploadUri)
-	//u := urljoiner.Join("staging", "droplets", r.FormValue(":guid"), "upload?async=true")
+	uploadUrl, err := url.Parse(uploadUriParameter)
 	if err != nil {
-		handleError(w, r, err, nil, requestLogger)
+		requestLogger.Error("failed", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 		return
 	}
 
-	if u.RawQuery == "" {
-		u.RawQuery = "async=true"
-	} else {
-		v := u.Query()
-		v.Set("async", "true")
-		u.RawQuery = v.Encode()
-	}
+	query := uploadUrl.Query()
+	query.Set("async", "true")
+	uploadUrl.RawQuery = query.Encode()
 
 	requestLogger.Info("start", lager.Data{
-		"url":            u,
+		"upload-url":     uploadUrl,
 		"content-length": r.ContentLength,
 	})
 
 	uploadStart := time.Now()
-	uploadResp, pollUrl, err := h.uploader.Upload(u, "droplet.tgz", r)
+	uploadResponse, pollUrl, err := h.uploader.Upload(uploadUrl, "droplet.tgz", r)
 	if err != nil {
-		handleError(w, r, err, uploadResp, requestLogger)
+		requestLogger.Error("failed", err)
+		if uploadResponse == nil {
+			w.WriteHeader(http.StatusInternalServerError)
+		} else {
+			w.WriteHeader(uploadResponse.StatusCode)
+		}
+		w.Write([]byte(err.Error()))
 		return
 	}
 	uploadEnd := time.Now()
@@ -71,29 +76,20 @@ func (h *dropletUploader) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		closeChan = closeNotifier.CloseNotify()
 	}
 
-	err = h.uploader.Poll(pollUrl, uploadResp, closeChan, h.pollingInterval)
+	err = h.uploader.Poll(pollUrl, uploadResponse, closeChan, h.pollingInterval)
 	if err != nil {
-		handleError(w, r, err, nil, requestLogger)
+		requestLogger.Error("failed", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 		return
 	}
 	pollEnd := time.Now()
 
 	w.WriteHeader(http.StatusCreated)
 	requestLogger.Info("success", lager.Data{
-		"url":            u,
+		"upload-url":     uploadUrl,
 		"content-length": r.ContentLength,
 		"upload-time":    uploadEnd.Sub(uploadStart).String(),
 		"poll-time":      pollEnd.Sub(uploadEnd).String(),
 	})
-}
-
-func handleError(w http.ResponseWriter, r *http.Request, err error, resp *http.Response, logger lager.Logger) {
-	status := http.StatusInternalServerError
-	if resp != nil {
-		status = resp.StatusCode
-	}
-
-	logger.Error("failed", err)
-	w.WriteHeader(status)
-	w.Write([]byte(err.Error()))
 }

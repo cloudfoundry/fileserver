@@ -11,8 +11,8 @@ import (
 )
 
 type Uploader interface {
-	Upload(url *url.URL, filename string, r *http.Request) (*http.Response, *url.URL, error)
-	Poll(url *url.URL, res *http.Response, closeChan <-chan bool, interval time.Duration) error
+	Upload(u *url.URL, filename string, r *http.Request) (*http.Response, *url.URL, error)
+	Poll(u *url.URL, res *http.Response, closeChan <-chan bool, interval time.Duration) error
 }
 
 type httpUploader struct {
