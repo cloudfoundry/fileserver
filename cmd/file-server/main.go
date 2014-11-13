@@ -15,7 +15,7 @@ import (
 	"github.com/cloudfoundry-incubator/cf-lager"
 	"github.com/cloudfoundry-incubator/file-server/handlers"
 	"github.com/cloudfoundry-incubator/file-server/uploader"
-	Router "github.com/cloudfoundry-incubator/runtime-schema/router"
+	"github.com/cloudfoundry-incubator/runtime-schema/router"
 	"github.com/cloudfoundry/dropsonde"
 	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
@@ -168,7 +168,7 @@ func initializeServer(logger lager.Logger) ifrit.Runner {
 
 	actions := handlers.New(*staticDirectory, *ccJobPollingInterval, uploader, logger)
 
-	router, err := Router.NewFileServerRoutes().Router(actions)
+	fileServerRouter, err := router.NewFileServerRoutes().Router(actions)
 
 	if err != nil {
 		logger.Error("router-building-failed", err)
@@ -176,5 +176,5 @@ func initializeServer(logger lager.Logger) ifrit.Runner {
 	}
 
 	address := fmt.Sprintf(":%d", *serverPort)
-	return http_server.New(address, router)
+	return http_server.New(address, fileServerRouter)
 }

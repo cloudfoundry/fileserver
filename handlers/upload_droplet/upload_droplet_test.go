@@ -13,7 +13,7 @@ import (
 	"github.com/cloudfoundry-incubator/file-server/uploader"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/runtime-schema/router"
-	ts "github.com/cloudfoundry/gunk/test_server"
+	"github.com/cloudfoundry/gunk/test_server"
 	"github.com/cloudfoundry/gunk/urljoiner"
 	"github.com/pivotal-golang/lager"
 
@@ -25,7 +25,7 @@ import (
 var _ = Describe("UploadDroplet", func() {
 	var (
 		ccAddress           string
-		fakeCloudController *ts.Server
+		fakeCloudController *test_server.Server
 		primaryUrl          *url.URL
 
 		ccUrl            string
@@ -49,15 +49,15 @@ var _ = Describe("UploadDroplet", func() {
 		uploadedFileName = ""
 		uploadedHeaders = nil
 
-		fakeCloudController = ts.New()
+		fakeCloudController = test_server.New()
 		ccUrl = fakeCloudController.URL()
 
 		queryMatch = "async=true"
 
-		fakeCloudController.Append(ts.CombineHandlers(
-			ts.VerifyRequest("POST", "/staging/droplet/app-guid/upload"),
-			ts.VerifyBasicAuth("bob", "password"),
-			ts.RespondPtr(&postStatusCode, &postResponseBody),
+		fakeCloudController.Append(test_server.CombineHandlers(
+			test_server.VerifyRequest("POST", "/staging/droplet/app-guid/upload"),
+			test_server.VerifyBasicAuth("bob", "password"),
+			test_server.RespondPtr(&postStatusCode, &postResponseBody),
 			func(w http.ResponseWriter, r *http.Request) {
 				Ω(r.URL.RawQuery).Should(Equal(queryMatch))
 				uploadedHeaders = r.Header
@@ -269,9 +269,9 @@ func PollingResponseBody(jobGuid, status string, baseUrl string) string {
 }
 
 func VerifyPollingRequest(jobGuid, status string, timeClicker chan time.Time) http.HandlerFunc {
-	return ts.CombineHandlers(
-		ts.VerifyRequest("GET", urljoiner.Join("/v2/jobs/", jobGuid)),
-		ts.Respond(http.StatusOK, PollingResponseBody(jobGuid, status, "")),
+	return test_server.CombineHandlers(
+		test_server.VerifyRequest("GET", urljoiner.Join("/v2/jobs/", jobGuid)),
+		test_server.Respond(http.StatusOK, PollingResponseBody(jobGuid, status, "")),
 		func(w http.ResponseWriter, r *http.Request) {
 			timeClicker <- time.Now()
 		},

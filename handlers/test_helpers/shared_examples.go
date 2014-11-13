@@ -6,12 +6,12 @@ import (
 	"net/http/httptest"
 	"strconv"
 
-	ts "github.com/cloudfoundry/gunk/test_server"
+	"github.com/cloudfoundry/gunk/test_server"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
-func ItFailsWhenTheContentLengthIsMissing(req **http.Request, resp **httptest.ResponseRecorder, server **ts.Server) {
+func ItFailsWhenTheContentLengthIsMissing(req **http.Request, resp **httptest.ResponseRecorder, server **test_server.Server) {
 	Context("uploading the file, when the request is missing content length", func() {
 		BeforeEach(func() {
 			(*req).ContentLength = -1
@@ -27,7 +27,7 @@ func ItFailsWhenTheContentLengthIsMissing(req **http.Request, resp **httptest.Re
 	})
 }
 
-func ItHandlesCCFailures(postStatusCode *int, resp **httptest.ResponseRecorder, server **ts.Server) {
+func ItHandlesCCFailures(postStatusCode *int, resp **httptest.ResponseRecorder, server **test_server.Server) {
 	Context("when CC returns a non-succesful status code", func() {
 		BeforeEach(func() {
 			*postStatusCode = 403

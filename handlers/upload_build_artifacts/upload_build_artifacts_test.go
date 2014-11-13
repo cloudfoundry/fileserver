@@ -8,13 +8,13 @@ import (
 	"net/url"
 
 	"github.com/cloudfoundry-incubator/file-server/handlers"
+	"github.com/cloudfoundry-incubator/file-server/handlers/test_helpers"
 	"github.com/cloudfoundry-incubator/file-server/uploader"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/runtime-schema/router"
-	ts "github.com/cloudfoundry/gunk/test_server"
+	"github.com/cloudfoundry/gunk/test_server"
 	"github.com/pivotal-golang/lager"
 
-	. "github.com/cloudfoundry-incubator/file-server/handlers/test_helpers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -22,7 +22,7 @@ import (
 var _ = Describe("UploadBuildArtifacts", func() {
 	var (
 		ccAddress           string
-		fakeCloudController *ts.Server
+		fakeCloudController *test_server.Server
 		primaryUrl          *url.URL
 
 		postStatusCode   int
@@ -42,12 +42,12 @@ var _ = Describe("UploadBuildArtifacts", func() {
 		uploadedBytes = nil
 		uploadedFileName = ""
 
-		fakeCloudController = ts.New()
+		fakeCloudController = test_server.New()
 
-		fakeCloudController.Append(ts.CombineHandlers(
-			ts.VerifyRequest("POST", "/staging/buildpack_cache/app-guid/upload"),
-			ts.VerifyBasicAuth("bob", "password"),
-			ts.RespondPtr(&postStatusCode, &postResponseBody),
+		fakeCloudController.Append(test_server.CombineHandlers(
+			test_server.VerifyRequest("POST", "/staging/buildpack_cache/app-guid/upload"),
+			test_server.VerifyBasicAuth("bob", "password"),
+			test_server.RespondPtr(&postStatusCode, &postResponseBody),
 			func(w http.ResponseWriter, r *http.Request) {
 				uploadedHeaders = r.Header
 				file, fileHeader, err := r.FormFile("upload[droplet]")
@@ -137,8 +137,8 @@ var _ = Describe("UploadBuildArtifacts", func() {
 		})
 	})
 
-	ItFailsWhenTheContentLengthIsMissing(&incomingRequest, &outgoingResponse, &fakeCloudController)
-	ItHandlesCCFailures(&postStatusCode, &outgoingResponse, &fakeCloudController)
+	test_helpers.ItFailsWhenTheContentLengthIsMissing(&incomingRequest, &outgoingResponse, &fakeCloudController)
+	test_helpers.ItHandlesCCFailures(&postStatusCode, &outgoingResponse, &fakeCloudController)
 
 	Context("when both urls fail", func() {
 		BeforeEach(func() {
