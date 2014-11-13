@@ -84,22 +84,10 @@ var dropsondeDestination = flag.String(
 	"Destination for dropsonde-emitted metrics.",
 )
 
-var ccUploadDialTimeout = flag.Duration(
-	"ccUploadDialTimeout",
-	10*time.Second,
-	"CloudController upload dial timeout",
-)
-
-var ccUploadKeepAlive = flag.Duration(
-	"ccUploadKeepAlive",
-	30*time.Second,
-	"CloudController keep-alive duration",
-)
-
-var ccUploadTLSHandshakeTimeout = flag.Duration(
-	"ccUploadTLSHandshakeTimeout",
-	10*time.Second,
-	"CloudController TLS handshake timeout",
+const (
+	ccUploadDialTimeout         = 10 * time.Second
+	ccUploadKeepAlive           = 30 * time.Second
+	ccUploadTLSHandshakeTimeout = 10 * time.Second
 )
 
 func main() {
@@ -155,13 +143,13 @@ func initializeServer(logger lager.Logger) ifrit.Runner {
 	transport := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		Dial: (&net.Dialer{
-			Timeout:   *ccUploadDialTimeout,
-			KeepAlive: *ccUploadKeepAlive,
+			Timeout:   ccUploadDialTimeout,
+			KeepAlive: ccUploadKeepAlive,
 		}).Dial,
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: *skipCertVerify,
 		},
-		TLSHandshakeTimeout: *ccUploadTLSHandshakeTimeout,
+		TLSHandshakeTimeout: ccUploadTLSHandshakeTimeout,
 	}
 
 	uploader := uploader.New(ccUrl, transport)
