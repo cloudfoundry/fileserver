@@ -29,9 +29,7 @@ func New(baseUrl *url.URL, transport http.RoundTripper) Uploader {
 	}
 }
 
-var headersToForward = []string{
-	"Content-MD5",
-}
+const contentMD5Header = "Content-MD5"
 
 func (u *httpUploader) Upload(primaryUrl *url.URL, filename string, r *http.Request) (*http.Response, *url.URL, error) {
 	if r.ContentLength <= 0 {
@@ -43,9 +41,8 @@ func (u *httpUploader) Upload(primaryUrl *url.URL, filename string, r *http.Requ
 	if err != nil {
 		return nil, nil, err
 	}
-	for _, headerName := range headersToForward {
-		uploadReq.Header.Set(headerName, r.Header.Get(headerName))
-	}
+
+	uploadReq.Header.Set(contentMD5Header, r.Header.Get(contentMD5Header))
 
 	// try the fast path
 	uploadReq.URL = primaryUrl
@@ -74,6 +71,8 @@ func (u *httpUploader) Upload(primaryUrl *url.URL, filename string, r *http.Requ
 	if err != nil {
 		return nil, nil, err
 	}
+
+	uploadReq.Header.Set(contentMD5Header, r.Header.Get(contentMD5Header))
 
 	uploadReq.URL.Scheme = u.baseUrl.Scheme
 	uploadReq.URL.Host = u.baseUrl.Host
