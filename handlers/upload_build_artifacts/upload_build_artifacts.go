@@ -10,9 +10,9 @@ import (
 	"github.com/pivotal-golang/lager"
 )
 
-func New(addr *url.URL, skipCertVerification bool, logger lager.Logger) http.Handler {
+func New(uploader uploader.Uploader, logger lager.Logger) http.Handler {
 	return &buildArtifactUploader{
-		uploader: uploader.New(addr, skipCertVerification),
+		uploader: uploader,
 		logger:   logger,
 	}
 }

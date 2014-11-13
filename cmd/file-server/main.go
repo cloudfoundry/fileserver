@@ -1,8 +1,12 @@
 package main
 
 import (
+	"crypto/tls"
 	"flag"
 	"fmt"
+	"net"
+	"net/http"
+	"net/url"
 	"os"
 	"runtime"
 	"time"
@@ -10,6 +14,7 @@ import (
 	"github.com/cloudfoundry-incubator/cf-debug-server"
 	"github.com/cloudfoundry-incubator/cf-lager"
 	"github.com/cloudfoundry-incubator/file-server/handlers"
+	"github.com/cloudfoundry-incubator/file-server/uploader"
 	Router "github.com/cloudfoundry-incubator/runtime-schema/router"
 	"github.com/cloudfoundry/dropsonde"
 	"github.com/pivotal-golang/lager"
@@ -79,6 +84,24 @@ var dropsondeDestination = flag.String(
 	"Destination for dropsonde-emitted metrics.",
 )
 
+var ccUploadDialTimeout = flag.Duration(
+	"ccUploadDialTimeout",
+	10*time.Second,
+	"CloudController upload dial timeout",
+)
+
+var ccUploadKeepAlive = flag.Duration(
+	"ccUploadKeepAlive",
+	30*time.Second,
+	"CloudController keep-alive duration",
+)
+
+var ccUploadTLSHandshakeTimeout = flag.Duration(
+	"ccUploadTLSHandshakeTimeout",
+	10*time.Second,
+	"CloudController TLS handshake timeout",
+)
+
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
@@ -116,6 +139,10 @@ func initializeServer(logger lager.Logger) ifrit.Runner {
 	if *ccAddress == "" {
 		logger.Fatal("cc-address-missing", nil)
 	}
+	ccUrl, err := url.Parse(*ccAddress)
+	if err != nil {
+		logger.Fatal("cc-address-parse-failure", err)
+	}
 	if *ccUsername == "" {
 		logger.Fatal("cc-username-missing", nil)
 	}
@@ -123,14 +150,23 @@ func initializeServer(logger lager.Logger) ifrit.Runner {
 		logger.Fatal("cc-password-missing", nil)
 	}
 
-	actions := handlers.New(handlers.Config{
-		CCJobPollingInterval: *ccJobPollingInterval,
-		CCAddress:            *ccAddress,
-		CCPassword:           *ccPassword,
-		CCUsername:           *ccUsername,
-		SkipCertVerify:       *skipCertVerify,
-		StaticDirectory:      *staticDirectory,
-	}, logger)
+	ccUrl.User = url.UserPassword(*ccUsername, *ccPassword)
+
+	transport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		Dial: (&net.Dialer{
+			Timeout:   *ccUploadDialTimeout,
+			KeepAlive: *ccUploadKeepAlive,
+		}).Dial,
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: *skipCertVerify,
+		},
+		TLSHandshakeTimeout: *ccUploadTLSHandshakeTimeout,
+	}
+
+	uploader := uploader.New(ccUrl, transport)
+
+	actions := handlers.New(*staticDirectory, *ccJobPollingInterval, uploader, logger)
 
 	router, err := Router.NewFileServerRoutes().Router(actions)
 

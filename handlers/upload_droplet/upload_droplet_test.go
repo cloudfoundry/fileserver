@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cloudfoundry-incubator/file-server/handlers"
+	"github.com/cloudfoundry-incubator/file-server/uploader"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/runtime-schema/router"
 	ts "github.com/cloudfoundry/gunk/test_server"
@@ -23,9 +24,9 @@ import (
 
 var _ = Describe("UploadDroplet", func() {
 	var (
+		ccAddress           string
 		fakeCloudController *ts.Server
 		primaryUrl          *url.URL
-		config              handlers.Config
 
 		ccUrl            string
 		postStatusCode   int
@@ -50,13 +51,6 @@ var _ = Describe("UploadDroplet", func() {
 
 		fakeCloudController = ts.New()
 		ccUrl = fakeCloudController.URL()
-
-		config = handlers.Config{
-			CCAddress:            fakeCloudController.URL(),
-			CCUsername:           "bob",
-			CCPassword:           "password",
-			CCJobPollingInterval: 100 * time.Millisecond,
-		}
 
 		queryMatch = "async=true"
 
@@ -87,11 +81,19 @@ var _ = Describe("UploadDroplet", func() {
 		buffer := bytes.NewBufferString("the file I'm uploading")
 		incomingRequest, err = http.NewRequest("POST", "", buffer)
 		incomingRequest.Header.Set("Content-MD5", "the-md5")
+
+		ccAddress = fakeCloudController.URL()
 	})
 
 	JustBeforeEach(func() {
 		logger := lager.NewLogger("fakelogger")
-		r, err := router.NewFileServerRoutes().Router(handlers.New(config, logger))
+
+		ccUrl, err := url.Parse(ccAddress)
+		Ω(err).ShouldNot(HaveOccurred())
+		ccUrl.User = url.UserPassword("bob", "password")
+		uploader := uploader.New(ccUrl, http.DefaultTransport)
+
+		r, err := router.NewFileServerRoutes().Router(handlers.New("", 100*time.Millisecond, uploader, logger))
 		Ω(err).ShouldNot(HaveOccurred())
 
 		u, err := url.Parse("http://file-server.com/v1/droplet/app-guid")
@@ -125,7 +127,6 @@ var _ = Describe("UploadDroplet", func() {
 	})
 
 	Context("uploading the file, when all is well", func() {
-
 		BeforeEach(func() {
 			postStatusCode = http.StatusCreated
 			postResponseBody = PollingResponseBody("my-job-guid", "queued", ccUrl)
@@ -138,7 +139,7 @@ var _ = Describe("UploadDroplet", func() {
 
 		Context("when the primary url works", func() {
 			BeforeEach(func() {
-				config.CCAddress = "127.0.0.1:0"
+				ccAddress = "127.0.0.1:0"
 			})
 
 			ItSucceeds := func() {
@@ -175,7 +176,7 @@ var _ = Describe("UploadDroplet", func() {
 			Context("when async=true is not included", func() {
 				Context("no query parameters", func() {
 					BeforeEach(func() {
-						config.CCAddress = "127.0.0.1:0"
+						ccAddress = "127.0.0.1:0"
 						primaryUrl.RawQuery = ""
 					})
 
@@ -184,7 +185,7 @@ var _ = Describe("UploadDroplet", func() {
 
 				Context("other query parameters", func() {
 					BeforeEach(func() {
-						config.CCAddress = "127.0.0.1:0"
+						ccAddress = "127.0.0.1:0"
 						primaryUrl.RawQuery = "a=b"
 						queryMatch = "a=b&async=true"
 					})
@@ -236,7 +237,7 @@ var _ = Describe("UploadDroplet", func() {
 	Context("when both urls fail", func() {
 		BeforeEach(func() {
 			primaryUrl.Host = "127.0.0.1:0"
-			config.CCAddress = "127.0.0.1:0"
+			ccAddress = "127.0.0.1:0"
 		})
 
 		It("reports a 500", func() {

@@ -11,9 +11,9 @@ import (
 	"github.com/pivotal-golang/lager"
 )
 
-func New(addr *url.URL, pollingInterval time.Duration, skipCertVerification bool, logger lager.Logger) http.Handler {
+func New(uploader uploader.Uploader, pollingInterval time.Duration, logger lager.Logger) http.Handler {
 	return &dropletUploader{
-		uploader:        uploader.New(addr, skipCertVerification),
+		uploader:        uploader,
 		pollingInterval: pollingInterval,
 		logger:          logger,
 	}

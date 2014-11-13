@@ -8,6 +8,7 @@ import (
 	"net/url"
 
 	"github.com/cloudfoundry-incubator/file-server/handlers"
+	"github.com/cloudfoundry-incubator/file-server/uploader"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/runtime-schema/router"
 	ts "github.com/cloudfoundry/gunk/test_server"
@@ -20,9 +21,9 @@ import (
 
 var _ = Describe("UploadBuildArtifacts", func() {
 	var (
+		ccAddress           string
 		fakeCloudController *ts.Server
 		primaryUrl          *url.URL
-		config              handlers.Config
 
 		postStatusCode   int
 		postResponseBody string
@@ -42,12 +43,6 @@ var _ = Describe("UploadBuildArtifacts", func() {
 		uploadedFileName = ""
 
 		fakeCloudController = ts.New()
-
-		config = handlers.Config{
-			CCAddress:  fakeCloudController.URL(),
-			CCUsername: "bob",
-			CCPassword: "password",
-		}
 
 		fakeCloudController.Append(ts.CombineHandlers(
 			ts.VerifyRequest("POST", "/staging/buildpack_cache/app-guid/upload"),
@@ -73,11 +68,19 @@ var _ = Describe("UploadBuildArtifacts", func() {
 		buffer := bytes.NewBufferString("the file I'm uploading")
 		incomingRequest, err = http.NewRequest("POST", "", buffer)
 		incomingRequest.Header.Set("Content-MD5", "the-md5")
+
+		ccAddress = fakeCloudController.URL()
 	})
 
 	JustBeforeEach(func() {
 		logger := lager.NewLogger("fakelogger")
-		r, err := router.NewFileServerRoutes().Router(handlers.New(config, logger))
+
+		ccUrl, err := url.Parse(ccAddress)
+		Ω(err).ShouldNot(HaveOccurred())
+		ccUrl.User = url.UserPassword("bob", "password")
+		uploader := uploader.New(ccUrl, http.DefaultTransport)
+
+		r, err := router.NewFileServerRoutes().Router(handlers.New("", 0, uploader, logger))
 		Ω(err).ShouldNot(HaveOccurred())
 
 		u, err := url.Parse("http://file-server.com/v1/build_artifacts/app-guid")
@@ -98,7 +101,7 @@ var _ = Describe("UploadBuildArtifacts", func() {
 	Context("uploading the file, when all is well", func() {
 		Context("when the primary url works", func() {
 			BeforeEach(func() {
-				config.CCAddress = "127.0.0.1:0"
+				ccAddress = "127.0.0.1:0"
 			})
 
 			It("makes the request to CC", func() {
@@ -140,7 +143,7 @@ var _ = Describe("UploadBuildArtifacts", func() {
 	Context("when both urls fail", func() {
 		BeforeEach(func() {
 			primaryUrl.Host = "127.0.0.1:0"
-			config.CCAddress = "127.0.0.1:0"
+			ccAddress = "127.0.0.1:0"
 		})
 
 		It("reports a 500", func() {

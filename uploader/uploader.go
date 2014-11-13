@@ -1,7 +1,6 @@
 package uploader
 
 import (
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -21,19 +20,7 @@ type httpUploader struct {
 	client  *http.Client
 }
 
-func New(baseUrl *url.URL, skipCertVerification bool) Uploader {
-	transport := &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
-		Dial: (&net.Dialer{
-			Timeout:   10 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).Dial,
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: skipCertVerification,
-		},
-		TLSHandshakeTimeout: 10 * time.Second,
-	}
-
+func New(baseUrl *url.URL, transport http.RoundTripper) Uploader {
 	return &httpUploader{
 		baseUrl: baseUrl,
 		client: &http.Client{
