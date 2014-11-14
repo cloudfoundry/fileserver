@@ -91,6 +91,7 @@ func (u *httpUploader) Upload(primaryUrl *url.URL, filename string, r *http.Requ
 
 func (u *httpUploader) do(req *http.Request) (*http.Response, error) {
 	rsp, err := u.client.Do(req)
+	req.Body.Close()
 	if err != nil {
 		return nil, err
 	}

@@ -8,6 +8,7 @@ import (
 	"net/url"
 
 	"github.com/cloudfoundry-incubator/file-server/uploader"
+	"github.com/cloudfoundry-incubator/file-server/uploader/test_helpers"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -59,9 +60,9 @@ var _ = Describe("Uploader", func() {
 			BeforeEach(func() {
 				baseURL = &url.URL{}
 				uploadRequestChan = make(chan *http.Request, 2)
-				transport = createFakeRoundTripper(
+				transport = test_helpers.NewFakeRoundTripper(
 					uploadRequestChan,
-					map[string]respErrorPair{
+					map[string]test_helpers.RespErrorPair{
 						"example.com": {responseWithCode(http.StatusOK), nil},
 					},
 				)
@@ -72,12 +73,14 @@ var _ = Describe("Uploader", func() {
 			})
 
 			It("Makes an upload request using that multipart request", func() {
-				uploadRequest := <-uploadRequestChan
+				var uploadRequest *http.Request
+				Eventually(uploadRequestChan).Should(Receive(&uploadRequest))
 				Ω(uploadRequest.Header.Get("Content-Type")).Should(ContainSubstring("multipart/form-data; boundary="))
 			})
 
 			It("Forwards Content-MD5 header onto the upload request", func() {
-				uploadRequest := <-uploadRequestChan
+				var uploadRequest *http.Request
+				Eventually(uploadRequestChan).Should(Receive(&uploadRequest))
 				Ω(uploadRequest.Header.Get("Content-MD5")).Should(Equal("the-md5"))
 			})
 
@@ -87,7 +90,8 @@ var _ = Describe("Uploader", func() {
 				})
 
 				It("Forwards the basic auth credentials", func() {
-					uploadRequest := <-uploadRequestChan
+					var uploadRequest *http.Request
+					Eventually(uploadRequestChan).Should(Receive(&uploadRequest))
 					Ω(uploadRequest.URL.User).Should(Equal(url.UserPassword("bob", "cobb")))
 				})
 			})
@@ -102,9 +106,9 @@ var _ = Describe("Uploader", func() {
 
 			Context("When request to the primary URL fails due to a network error other than a dial error", func() {
 				BeforeEach(func() {
-					transport = createFakeRoundTripper(
+					transport = test_helpers.NewFakeRoundTripper(
 						uploadRequestChan,
-						map[string]respErrorPair{
+						map[string]test_helpers.RespErrorPair{
 							"example.com": {nil, &net.OpError{Op: "not-dial"}},
 						},
 					)
@@ -122,9 +126,9 @@ var _ = Describe("Uploader", func() {
 
 			Context("When request to the primary URL fails due to a bad response", func() {
 				BeforeEach(func() {
-					transport = createFakeRoundTripper(
+					transport = test_helpers.NewFakeRoundTripper(
 						uploadRequestChan,
-						map[string]respErrorPair{
+						map[string]test_helpers.RespErrorPair{
 							"example.com": {responseWithCode(http.StatusUnauthorized), nil},
 						},
 					)
@@ -139,9 +143,9 @@ var _ = Describe("Uploader", func() {
 				BeforeEach(func() {
 					baseURL, _ = url.Parse("http://all-your-base.com")
 
-					transport = createFakeRoundTripper(
+					transport = test_helpers.NewFakeRoundTripper(
 						uploadRequestChan,
-						map[string]respErrorPair{
+						map[string]test_helpers.RespErrorPair{
 							"example.com":       {nil, &net.OpError{Op: "dial"}},
 							"all-your-base.com": {responseWithCode(http.StatusOK), nil},
 						},
@@ -149,23 +153,27 @@ var _ = Describe("Uploader", func() {
 				})
 
 				JustBeforeEach(func() {
-					primaryUploadRequest := <-uploadRequestChan
+					var primaryUploadRequest *http.Request
+					Eventually(uploadRequestChan).Should(Receive(&primaryUploadRequest))
 					Ω(primaryUploadRequest.URL.Host).Should(Equal("example.com"))
 				})
 
 				It("Makes the upload request to the base URL", func() {
-					uploadRequest := <-uploadRequestChan
+					var uploadRequest *http.Request
+					Eventually(uploadRequestChan).Should(Receive(&uploadRequest))
 					Ω(uploadRequest.URL).Should(Equal(baseURL))
 				})
 
 				Context("When it can create a valid multipart request to the base URL", func() {
 					It("Makes an upload request using that multipart request", func() {
-						uploadRequest := <-uploadRequestChan
+						var uploadRequest *http.Request
+						Eventually(uploadRequestChan).Should(Receive(&uploadRequest))
 						Ω(uploadRequest.Header.Get("Content-Type")).Should(ContainSubstring("multipart/form-data; boundary="))
 					})
 
 					It("Forwards Content-MD5 header onto the upload request", func() {
-						uploadRequest := <-uploadRequestChan
+						var uploadRequest *http.Request
+						Eventually(uploadRequestChan).Should(Receive(&uploadRequest))
 						Ω(uploadRequest.Header.Get("Content-MD5")).Should(Equal("the-md5"))
 					})
 
@@ -175,7 +183,8 @@ var _ = Describe("Uploader", func() {
 						})
 
 						It("Forwards the basic auth credentials", func() {
-							uploadRequest := <-uploadRequestChan
+							var uploadRequest *http.Request
+							Eventually(uploadRequestChan).Should(Receive(&uploadRequest))
 							Ω(uploadRequest.URL.User).Should(Equal(url.UserPassword("mary", "jane")))
 						})
 					})
@@ -190,9 +199,9 @@ var _ = Describe("Uploader", func() {
 
 					Context("When upload to the base URL fails", func() {
 						BeforeEach(func() {
-							transport = createFakeRoundTripper(
+							transport = test_helpers.NewFakeRoundTripper(
 								uploadRequestChan,
-								map[string]respErrorPair{
+								map[string]test_helpers.RespErrorPair{
 									"example.com":       {nil, &net.OpError{Op: "dial"}},
 									"all-your-base.com": {nil, &net.OpError{Op: "not-dial"}},
 								},
@@ -222,24 +231,4 @@ func createValidRequest() *http.Request {
 
 func responseWithCode(code int) *http.Response {
 	return &http.Response{StatusCode: code, Body: ioutil.NopCloser(bytes.NewBufferString(""))}
-}
-
-type respErrorPair struct {
-	resp *http.Response
-	err  error
-}
-
-type fakeRoundTripper struct {
-	reqChan chan *http.Request
-	respMap map[string]respErrorPair
-}
-
-func (f *fakeRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
-	f.reqChan <- r
-	pair := f.respMap[r.URL.Host]
-	return pair.resp, pair.err
-}
-
-func createFakeRoundTripper(reqChan chan *http.Request, responses map[string]respErrorPair) *fakeRoundTripper {
-	return &fakeRoundTripper{reqChan, responses}
 }
