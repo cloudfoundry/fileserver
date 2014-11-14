@@ -50,7 +50,7 @@ var _ = Describe("UploadBuildArtifacts", func() {
 			test_server.RespondPtr(&postStatusCode, &postResponseBody),
 			func(w http.ResponseWriter, r *http.Request) {
 				uploadedHeaders = r.Header
-				file, fileHeader, err := r.FormFile("upload[droplet]")
+				file, fileHeader, err := r.FormFile(uploader.FormField)
 				Ω(err).ShouldNot(HaveOccurred())
 				uploadedBytes, err = ioutil.ReadAll(file)
 				Ω(err).ShouldNot(HaveOccurred())

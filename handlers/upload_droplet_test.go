@@ -61,7 +61,7 @@ var _ = Describe("UploadDroplet", func() {
 			func(w http.ResponseWriter, r *http.Request) {
 				Ω(r.URL.RawQuery).Should(Equal(queryMatch))
 				uploadedHeaders = r.Header
-				file, fileHeader, err := r.FormFile("upload[droplet]")
+				file, fileHeader, err := r.FormFile(uploader.FormField)
 				Ω(err).ShouldNot(HaveOccurred())
 				uploadedBytes, err = ioutil.ReadAll(file)
 				Ω(err).ShouldNot(HaveOccurred())

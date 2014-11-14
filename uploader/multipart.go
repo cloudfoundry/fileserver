@@ -9,10 +9,12 @@ import (
 
 // FILE UPLOAD HELPERS
 
-func newMultipartRequestFromReader(contentLength int64, body io.Reader, formField string, fileName string) (*http.Request, error) {
+const FormField = "file"
+
+func newMultipartRequestFromReader(contentLength int64, body io.Reader, fileName string) (*http.Request, error) {
 	pipeReader, pipeWriter := io.Pipe()
 
-	multipartLength, multipartBoundary, err := computeMultipartFormLength(formField, fileName)
+	multipartLength, multipartBoundary, err := computeMultipartFormLength(fileName)
 	if err != nil {
 		return nil, err
 	}
@@ -25,7 +27,7 @@ func newMultipartRequestFromReader(contentLength int64, body io.Reader, formFiel
 			pipeWriter.CloseWithError(err)
 		}()
 
-		filePartWriter, err := multipartWriter.CreateFormFile(formField, fileName)
+		filePartWriter, err := multipartWriter.CreateFormFile(FormField, fileName)
 		if err != nil {
 			return
 		}
@@ -50,10 +52,10 @@ func newMultipartRequestFromReader(contentLength int64, body io.Reader, formFiel
 }
 
 //computes the length of the multi-part form request, minus the content of the form itself
-func computeMultipartFormLength(formField string, fileName string) (int64, string, error) {
+func computeMultipartFormLength(fileName string) (int64, string, error) {
 	multipartBuffer := &bytes.Buffer{}
 	multipartWriter := multipart.NewWriter(multipartBuffer)
-	_, err := multipartWriter.CreateFormFile(formField, fileName)
+	_, err := multipartWriter.CreateFormFile(FormField, fileName)
 	multipartWriter.Close()
 
 	return int64(multipartBuffer.Len()), multipartWriter.Boundary(), err

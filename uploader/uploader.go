@@ -37,7 +37,7 @@ func (u *httpUploader) Upload(primaryUrl *url.URL, filename string, r *http.Requ
 	}
 	defer r.Body.Close()
 
-	uploadReq, err := newMultipartRequestFromReader(r.ContentLength, r.Body, "upload[droplet]", filename)
+	uploadReq, err := newMultipartRequestFromReader(r.ContentLength, r.Body, filename)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -67,7 +67,7 @@ func (u *httpUploader) Upload(primaryUrl *url.URL, filename string, r *http.Requ
 	}
 
 	// try the slow path
-	uploadReq, err = newMultipartRequestFromReader(r.ContentLength, r.Body, "upload[droplet]", filename)
+	uploadReq, err = newMultipartRequestFromReader(r.ContentLength, r.Body, filename)
 	if err != nil {
 		return nil, nil, err
 	}
