@@ -118,7 +118,7 @@ const (
 	JOB_FINISHED = "finished"
 )
 
-func (u *httpUploader) Poll(target *url.URL, res *http.Response, closeChan <-chan bool, interval time.Duration) error {
+func (u *httpUploader) Poll(fallbackURL *url.URL, res *http.Response, closeChan <-chan bool, interval time.Duration) error {
 	body, err := u.parsePollingResponse(res)
 	if err != nil {
 		return err
@@ -146,8 +146,8 @@ func (u *httpUploader) Poll(target *url.URL, res *http.Response, closeChan <-cha
 			}
 
 			if pollingUrl.Host == "" {
-				pollingUrl.Scheme = target.Scheme
-				pollingUrl.Host = target.Host
+				pollingUrl.Scheme = fallbackURL.Scheme
+				pollingUrl.Host = fallbackURL.Host
 			}
 			res, err := u.client.Get(pollingUrl.String())
 			if err != nil {
