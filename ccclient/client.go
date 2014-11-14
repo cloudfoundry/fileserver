@@ -1,0 +1,14 @@
+package ccclient
+
+import (
+	"net/http"
+	"net/url"
+)
+
+type Uploader interface {
+	Upload(uploadURL *url.URL, filename string, r *http.Request) (*http.Response, *url.URL, error)
+}
+
+type Poller interface {
+	Poll(fallbackURL *url.URL, res *http.Response, closeChan <-chan bool) error
+}

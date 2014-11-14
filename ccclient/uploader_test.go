@@ -1,4 +1,4 @@
-package uploader_test
+package ccclient_test
 
 import (
 	"bytes"
@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/cloudfoundry-incubator/file-server/uploader"
-	"github.com/cloudfoundry-incubator/file-server/uploader/test_helpers"
+	"github.com/cloudfoundry-incubator/file-server/ccclient"
+	"github.com/cloudfoundry-incubator/file-server/ccclient/test_helpers"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -16,7 +16,7 @@ import (
 
 var _ = Describe("Uploader", func() {
 	var (
-		u         uploader.Uploader
+		u         ccclient.Uploader
 		baseURL   *url.URL
 		transport http.RoundTripper
 	)
@@ -33,7 +33,7 @@ var _ = Describe("Uploader", func() {
 		)
 
 		JustBeforeEach(func() {
-			u = uploader.New(baseURL, transport)
+			u = ccclient.NewUploader(baseURL, transport)
 			response, usedURL, uploadErr = u.Upload(primaryURL, filename, incomingRequest)
 		})
 

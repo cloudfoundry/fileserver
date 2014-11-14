@@ -7,10 +7,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"time"
 
+	"github.com/cloudfoundry-incubator/file-server/ccclient/fake_ccclient"
 	"github.com/cloudfoundry-incubator/file-server/handlers/upload_droplet"
-	"github.com/cloudfoundry-incubator/file-server/uploader/fake_uploader"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -21,12 +20,13 @@ var _ = Describe("UploadDroplet", func() {
 	Describe("ServeHTTP", func() {
 		var incomingRequest *http.Request
 		var outgoingResponse *httptest.ResponseRecorder
-		var uploader fake_uploader.FakeUploader
+		var uploader fake_ccclient.FakeUploader
+		var poller fake_ccclient.FakePoller
 		var logger lager.Logger
 
 		JustBeforeEach(func() {
 			logger = lager.NewLogger("fake-logger")
-			dropletUploadHandler := upload_droplet.New(&uploader, 100*time.Millisecond, logger)
+			dropletUploadHandler := upload_droplet.New(&uploader, &poller, logger)
 
 			outgoingResponse = httptest.NewRecorder()
 			dropletUploadHandler.ServeHTTP(outgoingResponse, incomingRequest)
@@ -38,7 +38,8 @@ var _ = Describe("UploadDroplet", func() {
 				incomingRequest, err = http.NewRequest("POST", "http://example.com", bytes.NewBufferString(""))
 				Ω(err).ShouldNot(HaveOccurred())
 
-				uploader = fake_uploader.FakeUploader{}
+				uploader = fake_ccclient.FakeUploader{}
+				poller = fake_ccclient.FakePoller{}
 			})
 
 			It("responds with an error code", func() {
@@ -65,7 +66,8 @@ var _ = Describe("UploadDroplet", func() {
 				)
 				Ω(err).ShouldNot(HaveOccurred())
 
-				uploader = fake_uploader.FakeUploader{}
+				uploader = fake_ccclient.FakeUploader{}
+				poller = fake_ccclient.FakePoller{}
 			})
 
 			It("responds adds the async=true query parameter to the upload URI for the upload request", func() {
@@ -84,7 +86,8 @@ var _ = Describe("UploadDroplet", func() {
 				)
 				Ω(err).ShouldNot(HaveOccurred())
 
-				uploader = fake_uploader.FakeUploader{}
+				uploader = fake_ccclient.FakeUploader{}
+				poller = fake_ccclient.FakePoller{}
 				uploader.UploadReturns(nil, nil, errors.New("some-error"))
 			})
 
@@ -108,7 +111,8 @@ var _ = Describe("UploadDroplet", func() {
 				)
 				Ω(err).ShouldNot(HaveOccurred())
 
-				uploader = fake_uploader.FakeUploader{}
+				uploader = fake_ccclient.FakeUploader{}
+				poller = fake_ccclient.FakePoller{}
 				uploader.UploadReturns(&http.Response{StatusCode: 404}, nil, errors.New("some-error"))
 			})
 
@@ -139,20 +143,20 @@ var _ = Describe("UploadDroplet", func() {
 				pollUrl, urlParseErr = url.Parse("http://poll-url.com")
 				Ω(urlParseErr).ShouldNot(HaveOccurred())
 				uploadResponse = &http.Response{StatusCode: http.StatusOK}
-				uploader = fake_uploader.FakeUploader{}
+				uploader = fake_ccclient.FakeUploader{}
+				poller = fake_ccclient.FakePoller{}
 				uploader.UploadReturns(uploadResponse, pollUrl, nil)
 			})
 
 			It("Polls for success of the upload", func() {
-				pollArgsURL, pollArgsUploadResponse, _, pollArgsInterval := uploader.PollArgsForCall(0)
+				pollArgsURL, pollArgsUploadResponse, _ := poller.PollArgsForCall(0)
 				Ω(pollArgsURL).Should(Equal(pollUrl))
 				Ω(pollArgsUploadResponse).Should(Equal(uploadResponse))
-				Ω(pollArgsInterval).Should(Equal(100 * time.Millisecond))
 			})
 
 			Context("When polling for success of the upload fails", func() {
 				BeforeEach(func() {
-					uploader.PollReturns(errors.New("poll-error"))
+					poller.PollReturns(errors.New("poll-error"))
 				})
 
 				It("responds with an error code", func() {
@@ -167,7 +171,7 @@ var _ = Describe("UploadDroplet", func() {
 
 			Context("When polling for success of the upload succeeds", func() {
 				BeforeEach(func() {
-					uploader.PollReturns(nil)
+					poller.PollReturns(nil)
 				})
 
 				It("responds with a status created", func() {

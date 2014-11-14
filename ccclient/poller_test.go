@@ -1,4 +1,4 @@
-package uploader_test
+package ccclient_test
 
 import (
 	"bytes"
@@ -9,16 +9,16 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/cloudfoundry-incubator/file-server/uploader"
-	"github.com/cloudfoundry-incubator/file-server/uploader/test_helpers"
+	"github.com/cloudfoundry-incubator/file-server/ccclient"
+	"github.com/cloudfoundry-incubator/file-server/ccclient/test_helpers"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Uploader", func() {
+var _ = Describe("Poller", func() {
 	var (
-		u               uploader.Uploader
+		u               ccclient.Poller
 		transport       http.RoundTripper
 		pollRequestChan chan *http.Request
 	)
@@ -30,20 +30,18 @@ var _ = Describe("Uploader", func() {
 			pollURL                *url.URL
 			originalUploadResponse *http.Response
 			closeChan              chan bool
-			pollInterval           time.Duration
 		)
 
 		BeforeEach(func() {
 			closeChan = make(chan bool, 1)
-			pollInterval = 10 * time.Millisecond
 		})
 
 		JustBeforeEach(func() {
-			u = uploader.New(&url.URL{}, transport)
+			u = ccclient.NewPoller(transport, 10*time.Millisecond)
 			pollErrChan = make(chan error, 1)
 			go func(pec chan error) {
 				defer GinkgoRecover()
-				pec <- u.Poll(pollURL, originalUploadResponse, closeChan, pollInterval)
+				pec <- u.Poll(pollURL, originalUploadResponse, closeChan)
 			}(pollErrChan)
 		})
 
@@ -60,7 +58,7 @@ var _ = Describe("Uploader", func() {
 		Context("with a valid initial response", func() {
 			Context("when the status is 'finished'", func() {
 				BeforeEach(func() {
-					originalUploadResponse = responseWithBody(pollingResponseBody("http://example.com", uploader.JOB_FINISHED))
+					originalUploadResponse = responseWithBody(pollingResponseBody("http://example.com", ccclient.JOB_FINISHED))
 				})
 
 				It("returns with no error", func() {
@@ -70,7 +68,7 @@ var _ = Describe("Uploader", func() {
 
 			Context("when the status is 'failed'", func() {
 				BeforeEach(func() {
-					originalUploadResponse = responseWithBody(pollingResponseBody("http://example.com", uploader.JOB_FAILED))
+					originalUploadResponse = responseWithBody(pollingResponseBody("http://example.com", ccclient.JOB_FAILED))
 				})
 
 				It("returns with an error", func() {
@@ -92,7 +90,7 @@ var _ = Describe("Uploader", func() {
 				var jobStatus string
 
 				BeforeEach(func() {
-					jobStatus = uploader.JOB_QUEUED
+					jobStatus = ccclient.JOB_QUEUED
 				})
 
 				Context("when the close channel is written to", func() {
@@ -124,8 +122,8 @@ var _ = Describe("Uploader", func() {
 						transport = test_helpers.NewFakeRoundTripper(
 							pollRequestChan,
 							map[string]test_helpers.RespErrorPair{
-								"example.com":          {responseWithBody(pollingResponseBody("http://polling-endpoint.com", uploader.JOB_QUEUED)), nil},
-								"polling-endpoint.com": {responseWithBody(pollingResponseBody("http://2nd-time.com", uploader.JOB_FAILED)), nil},
+								"example.com":          {responseWithBody(pollingResponseBody("http://polling-endpoint.com", ccclient.JOB_QUEUED)), nil},
+								"polling-endpoint.com": {responseWithBody(pollingResponseBody("http://2nd-time.com", ccclient.JOB_FAILED)), nil},
 							},
 						)
 					})
@@ -149,8 +147,8 @@ var _ = Describe("Uploader", func() {
 						transport = test_helpers.NewFakeRoundTripper(
 							pollRequestChan,
 							map[string]test_helpers.RespErrorPair{
-								"fallback-url.com":     {responseWithBody(pollingResponseBody("http://polling-endpoint.com", uploader.JOB_QUEUED)), nil},
-								"polling-endpoint.com": {responseWithBody(pollingResponseBody("http://2nd-time.com", uploader.JOB_FAILED)), nil},
+								"fallback-url.com":     {responseWithBody(pollingResponseBody("http://polling-endpoint.com", ccclient.JOB_QUEUED)), nil},
+								"polling-endpoint.com": {responseWithBody(pollingResponseBody("http://2nd-time.com", ccclient.JOB_FAILED)), nil},
 							},
 						)
 
@@ -214,10 +212,10 @@ var _ = Describe("Uploader", func() {
 						transport = test_helpers.NewFakeRoundTripper(
 							pollRequestChan,
 							map[string]test_helpers.RespErrorPair{
-								"example.com": {responseWithBody(pollingResponseBody("http://1.com", uploader.JOB_QUEUED)), nil},
-								"1.com":       {responseWithBody(pollingResponseBody("http://2.com", uploader.JOB_RUNNING)), nil},
-								"2.com":       {responseWithBody(pollingResponseBody("http://3.com", uploader.JOB_RUNNING)), nil},
-								"3.com":       {responseWithBody(pollingResponseBody("http://4.com", uploader.JOB_RUNNING)), nil},
+								"example.com": {responseWithBody(pollingResponseBody("http://1.com", ccclient.JOB_QUEUED)), nil},
+								"1.com":       {responseWithBody(pollingResponseBody("http://2.com", ccclient.JOB_RUNNING)), nil},
+								"2.com":       {responseWithBody(pollingResponseBody("http://3.com", ccclient.JOB_RUNNING)), nil},
+								"3.com":       {responseWithBody(pollingResponseBody("http://4.com", ccclient.JOB_RUNNING)), nil},
 								"4.com":       {responseWithBody("garbage"), nil},
 							},
 						)
@@ -236,11 +234,11 @@ var _ = Describe("Uploader", func() {
 						transport = test_helpers.NewFakeRoundTripper(
 							pollRequestChan,
 							map[string]test_helpers.RespErrorPair{
-								"example.com": {responseWithBody(pollingResponseBody("http://1.com", uploader.JOB_QUEUED)), nil},
-								"1.com":       {responseWithBody(pollingResponseBody("http://2.com", uploader.JOB_RUNNING)), nil},
-								"2.com":       {responseWithBody(pollingResponseBody("http://3.com", uploader.JOB_RUNNING)), nil},
-								"3.com":       {responseWithBody(pollingResponseBody("http://4.com", uploader.JOB_RUNNING)), nil},
-								"4.com":       {responseWithBody(pollingResponseBody("http://4.com", uploader.JOB_FINISHED)), nil},
+								"example.com": {responseWithBody(pollingResponseBody("http://1.com", ccclient.JOB_QUEUED)), nil},
+								"1.com":       {responseWithBody(pollingResponseBody("http://2.com", ccclient.JOB_RUNNING)), nil},
+								"2.com":       {responseWithBody(pollingResponseBody("http://3.com", ccclient.JOB_RUNNING)), nil},
+								"3.com":       {responseWithBody(pollingResponseBody("http://4.com", ccclient.JOB_RUNNING)), nil},
+								"4.com":       {responseWithBody(pollingResponseBody("http://4.com", ccclient.JOB_FINISHED)), nil},
 							},
 						)
 					})

@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 
+	"github.com/cloudfoundry-incubator/file-server/ccclient/fake_ccclient"
 	"github.com/cloudfoundry-incubator/file-server/handlers/upload_build_artifacts"
-	"github.com/cloudfoundry-incubator/file-server/uploader/fake_uploader"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -19,7 +19,7 @@ var _ = Describe("UploadBuildArtifacts", func() {
 	Describe("ServeHTTP", func() {
 		var incomingRequest *http.Request
 		var outgoingResponse *httptest.ResponseRecorder
-		var uploader fake_uploader.FakeUploader
+		var uploader fake_ccclient.FakeUploader
 		var logger lager.Logger
 
 		JustBeforeEach(func() {
@@ -36,7 +36,7 @@ var _ = Describe("UploadBuildArtifacts", func() {
 				incomingRequest, err = http.NewRequest("POST", "http://example.com", bytes.NewBufferString(""))
 				Ω(err).ShouldNot(HaveOccurred())
 
-				uploader = fake_uploader.FakeUploader{}
+				uploader = fake_ccclient.FakeUploader{}
 			})
 
 			It("responds with an error code", func() {
@@ -63,7 +63,7 @@ var _ = Describe("UploadBuildArtifacts", func() {
 				)
 				Ω(err).ShouldNot(HaveOccurred())
 
-				uploader = fake_uploader.FakeUploader{}
+				uploader = fake_ccclient.FakeUploader{}
 				uploader.UploadReturns(nil, nil, errors.New("some-error"))
 			})
 
@@ -87,7 +87,7 @@ var _ = Describe("UploadBuildArtifacts", func() {
 				)
 				Ω(err).ShouldNot(HaveOccurred())
 
-				uploader = fake_uploader.FakeUploader{}
+				uploader = fake_ccclient.FakeUploader{}
 				uploader.UploadReturns(&http.Response{StatusCode: 404}, nil, errors.New("some-error"))
 			})
 
@@ -111,7 +111,7 @@ var _ = Describe("UploadBuildArtifacts", func() {
 				)
 				Ω(err).ShouldNot(HaveOccurred())
 
-				uploader = fake_uploader.FakeUploader{}
+				uploader = fake_ccclient.FakeUploader{}
 				uploader.UploadReturns(&http.Response{StatusCode: http.StatusOK}, nil, nil)
 			})
 

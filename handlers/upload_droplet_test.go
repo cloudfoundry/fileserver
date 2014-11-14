@@ -9,8 +9,8 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/cloudfoundry-incubator/file-server/ccclient"
 	"github.com/cloudfoundry-incubator/file-server/handlers"
-	"github.com/cloudfoundry-incubator/file-server/uploader"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/runtime-schema/router"
 	"github.com/cloudfoundry/gunk/test_server"
@@ -61,7 +61,7 @@ var _ = Describe("UploadDroplet", func() {
 			func(w http.ResponseWriter, r *http.Request) {
 				Ω(r.URL.RawQuery).Should(Equal(queryMatch))
 				uploadedHeaders = r.Header
-				file, fileHeader, err := r.FormFile(uploader.FormField)
+				file, fileHeader, err := r.FormFile(ccclient.FormField)
 				Ω(err).ShouldNot(HaveOccurred())
 				uploadedBytes, err = ioutil.ReadAll(file)
 				Ω(err).ShouldNot(HaveOccurred())
@@ -91,9 +91,10 @@ var _ = Describe("UploadDroplet", func() {
 		ccUrl, err := url.Parse(ccAddress)
 		Ω(err).ShouldNot(HaveOccurred())
 		ccUrl.User = url.UserPassword("bob", "password")
-		uploader := uploader.New(ccUrl, http.DefaultTransport)
+		uploader := ccclient.NewUploader(ccUrl, http.DefaultTransport)
+		poller := ccclient.NewPoller(http.DefaultTransport, 100*time.Millisecond)
 
-		r, err := router.NewFileServerRoutes().Router(handlers.New("", 100*time.Millisecond, uploader, logger))
+		r, err := router.NewFileServerRoutes().Router(handlers.New("", uploader, poller, logger))
 		Ω(err).ShouldNot(HaveOccurred())
 
 		u, err := url.Parse("http://file-server.com/v1/droplet/app-guid")

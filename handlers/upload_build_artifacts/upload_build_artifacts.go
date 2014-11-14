@@ -6,12 +6,12 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/cloudfoundry-incubator/file-server/uploader"
+	"github.com/cloudfoundry-incubator/file-server/ccclient"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/pivotal-golang/lager"
 )
 
-func New(uploader uploader.Uploader, logger lager.Logger) http.Handler {
+func New(uploader ccclient.Uploader, logger lager.Logger) http.Handler {
 	return &buildArtifactUploader{
 		uploader: uploader,
 		logger:   logger,
@@ -19,7 +19,7 @@ func New(uploader uploader.Uploader, logger lager.Logger) http.Handler {
 }
 
 type buildArtifactUploader struct {
-	uploader uploader.Uploader
+	uploader ccclient.Uploader
 	logger   lager.Logger
 }
 

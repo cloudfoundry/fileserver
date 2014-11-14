@@ -1,4 +1,4 @@
-package uploader_test
+package ccclient_test
 
 import (
 	. "github.com/onsi/ginkgo"
@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestUploader(t *testing.T) {
+func TestCcclient(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Uploader Suite")
+	RunSpecs(t, "Ccclient Suite")
 }

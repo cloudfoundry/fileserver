@@ -7,9 +7,9 @@ import (
 	"net/http/httptest"
 	"net/url"
 
+	"github.com/cloudfoundry-incubator/file-server/ccclient"
 	"github.com/cloudfoundry-incubator/file-server/handlers"
 	"github.com/cloudfoundry-incubator/file-server/handlers/test_helpers"
-	"github.com/cloudfoundry-incubator/file-server/uploader"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/runtime-schema/router"
 	"github.com/cloudfoundry/gunk/test_server"
@@ -50,7 +50,7 @@ var _ = Describe("UploadBuildArtifacts", func() {
 			test_server.RespondPtr(&postStatusCode, &postResponseBody),
 			func(w http.ResponseWriter, r *http.Request) {
 				uploadedHeaders = r.Header
-				file, fileHeader, err := r.FormFile(uploader.FormField)
+				file, fileHeader, err := r.FormFile(ccclient.FormField)
 				Ω(err).ShouldNot(HaveOccurred())
 				uploadedBytes, err = ioutil.ReadAll(file)
 				Ω(err).ShouldNot(HaveOccurred())
@@ -78,9 +78,10 @@ var _ = Describe("UploadBuildArtifacts", func() {
 		ccUrl, err := url.Parse(ccAddress)
 		Ω(err).ShouldNot(HaveOccurred())
 		ccUrl.User = url.UserPassword("bob", "password")
-		uploader := uploader.New(ccUrl, http.DefaultTransport)
+		uploader := ccclient.NewUploader(ccUrl, http.DefaultTransport)
+		poller := ccclient.NewPoller(http.DefaultTransport, 0)
 
-		r, err := router.NewFileServerRoutes().Router(handlers.New("", 0, uploader, logger))
+		r, err := router.NewFileServerRoutes().Router(handlers.New("", uploader, poller, logger))
 		Ω(err).ShouldNot(HaveOccurred())
 
 		u, err := url.Parse("http://file-server.com/v1/build_artifacts/app-guid")

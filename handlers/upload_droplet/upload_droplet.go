@@ -7,23 +7,23 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/cloudfoundry-incubator/file-server/uploader"
+	"github.com/cloudfoundry-incubator/file-server/ccclient"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/pivotal-golang/lager"
 )
 
-func New(uploader uploader.Uploader, pollingInterval time.Duration, logger lager.Logger) http.Handler {
+func New(uploader ccclient.Uploader, poller ccclient.Poller, logger lager.Logger) http.Handler {
 	return &dropletUploader{
-		uploader:        uploader,
-		pollingInterval: pollingInterval,
-		logger:          logger,
+		uploader: uploader,
+		poller:   poller,
+		logger:   logger,
 	}
 }
 
 type dropletUploader struct {
-	pollingInterval time.Duration
-	uploader        uploader.Uploader
-	logger          lager.Logger
+	uploader ccclient.Uploader
+	poller   ccclient.Poller
+	logger   lager.Logger
 }
 
 var MissingCCDropletUploadUriKeyError = errors.New(fmt.Sprintf("missing %s parameter", models.CcDropletUploadUriKey))
@@ -76,7 +76,7 @@ func (h *dropletUploader) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		closeChan = closeNotifier.CloseNotify()
 	}
 
-	err = h.uploader.Poll(pollUrl, uploadResponse, closeChan, h.pollingInterval)
+	err = h.poller.Poll(pollUrl, uploadResponse, closeChan)
 	if err != nil {
 		requestLogger.Error("failed", err)
 		w.WriteHeader(http.StatusInternalServerError)

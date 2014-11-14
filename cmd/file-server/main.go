@@ -13,8 +13,8 @@ import (
 
 	"github.com/cloudfoundry-incubator/cf-debug-server"
 	"github.com/cloudfoundry-incubator/cf-lager"
+	"github.com/cloudfoundry-incubator/file-server/ccclient"
 	"github.com/cloudfoundry-incubator/file-server/handlers"
-	"github.com/cloudfoundry-incubator/file-server/uploader"
 	"github.com/cloudfoundry-incubator/runtime-schema/router"
 	"github.com/cloudfoundry/dropsonde"
 	"github.com/pivotal-golang/lager"
@@ -152,9 +152,10 @@ func initializeServer(logger lager.Logger) ifrit.Runner {
 		TLSHandshakeTimeout: ccUploadTLSHandshakeTimeout,
 	}
 
-	uploader := uploader.New(ccUrl, transport)
+	uploader := ccclient.NewUploader(ccUrl, transport)
+	poller := ccclient.NewPoller(transport, *ccJobPollingInterval)
 
-	actions := handlers.New(*staticDirectory, *ccJobPollingInterval, uploader, logger)
+	actions := handlers.New(*staticDirectory, uploader, poller, logger)
 
 	fileServerRouter, err := router.NewFileServerRoutes().Router(actions)
 
