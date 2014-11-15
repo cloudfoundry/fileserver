@@ -7,8 +7,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"time"
 
 	"github.com/cloudfoundry-incubator/file-server/ccclient/fake_ccclient"
+	"github.com/cloudfoundry-incubator/file-server/handlers/test_helpers"
 	"github.com/cloudfoundry-incubator/file-server/handlers/upload_droplet"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	. "github.com/onsi/ginkgo"
@@ -19,17 +21,24 @@ import (
 var _ = Describe("UploadDroplet", func() {
 	Describe("ServeHTTP", func() {
 		var incomingRequest *http.Request
+		var responseWriter http.ResponseWriter
 		var outgoingResponse *httptest.ResponseRecorder
 		var uploader fake_ccclient.FakeUploader
 		var poller fake_ccclient.FakePoller
 		var logger lager.Logger
 
+		BeforeEach(func() {
+			outgoingResponse = httptest.NewRecorder()
+			responseWriter = outgoingResponse
+			uploader = fake_ccclient.FakeUploader{}
+			poller = fake_ccclient.FakePoller{}
+		})
+
 		JustBeforeEach(func() {
 			logger = lager.NewLogger("fake-logger")
 			dropletUploadHandler := upload_droplet.New(&uploader, &poller, logger)
 
-			outgoingResponse = httptest.NewRecorder()
-			dropletUploadHandler.ServeHTTP(outgoingResponse, incomingRequest)
+			dropletUploadHandler.ServeHTTP(responseWriter, incomingRequest)
 		})
 
 		Context("When the request does not include a droplet upload URI", func() {
@@ -37,13 +46,10 @@ var _ = Describe("UploadDroplet", func() {
 				var err error
 				incomingRequest, err = http.NewRequest("POST", "http://example.com", bytes.NewBufferString(""))
 				Ω(err).ShouldNot(HaveOccurred())
-
-				uploader = fake_ccclient.FakeUploader{}
-				poller = fake_ccclient.FakePoller{}
 			})
 
 			It("responds with an error code", func() {
-				Ω(outgoingResponse.Code).Should(Equal(http.StatusInternalServerError))
+				Ω(outgoingResponse.Code).Should(Equal(http.StatusBadRequest))
 			})
 
 			It("does not attempt to upload", func() {
@@ -65,13 +71,10 @@ var _ = Describe("UploadDroplet", func() {
 					bytes.NewBufferString(""),
 				)
 				Ω(err).ShouldNot(HaveOccurred())
-
-				uploader = fake_ccclient.FakeUploader{}
-				poller = fake_ccclient.FakePoller{}
 			})
 
 			It("responds adds the async=true query parameter to the upload URI for the upload request", func() {
-				uploadUrl, _, _ := uploader.UploadArgsForCall(0)
+				uploadUrl, _, _, _ := uploader.UploadArgsForCall(0)
 				Ω(uploadUrl).Should(MatchRegexp("async=true"))
 			})
 		})
@@ -86,8 +89,6 @@ var _ = Describe("UploadDroplet", func() {
 				)
 				Ω(err).ShouldNot(HaveOccurred())
 
-				uploader = fake_ccclient.FakeUploader{}
-				poller = fake_ccclient.FakePoller{}
 				uploader.UploadReturns(nil, nil, errors.New("some-error"))
 			})
 
@@ -111,8 +112,6 @@ var _ = Describe("UploadDroplet", func() {
 				)
 				Ω(err).ShouldNot(HaveOccurred())
 
-				uploader = fake_ccclient.FakeUploader{}
-				poller = fake_ccclient.FakePoller{}
 				uploader.UploadReturns(&http.Response{StatusCode: 404}, nil, errors.New("some-error"))
 			})
 
@@ -143,8 +142,7 @@ var _ = Describe("UploadDroplet", func() {
 				pollUrl, urlParseErr = url.Parse("http://poll-url.com")
 				Ω(urlParseErr).ShouldNot(HaveOccurred())
 				uploadResponse = &http.Response{StatusCode: http.StatusOK}
-				uploader = fake_ccclient.FakeUploader{}
-				poller = fake_ccclient.FakePoller{}
+
 				uploader.UploadReturns(uploadResponse, pollUrl, nil)
 			})
 
@@ -176,6 +174,100 @@ var _ = Describe("UploadDroplet", func() {
 
 				It("responds with a status created", func() {
 					Ω(outgoingResponse.Code).Should(Equal(http.StatusCreated))
+				})
+			})
+		})
+
+		Context("when the requester (client) goes away", func() {
+			var fakeResponseWriter *test_helpers.FakeResponseWriter
+
+			BeforeEach(func() {
+				var err error
+				incomingRequest, err = http.NewRequest(
+					"POST",
+					fmt.Sprintf("http://example.com?%s=upload-uri.com", models.CcDropletUploadUriKey),
+					bytes.NewBufferString(""),
+				)
+				Ω(err).ShouldNot(HaveOccurred())
+			})
+
+			Context("and we are uploading", func() {
+				BeforeEach(func() {
+					closedChan := make(chan bool)
+					fakeResponseWriter = test_helpers.NewFakeResponseWriter(closedChan)
+					responseWriter = fakeResponseWriter
+
+					uploader.UploadStub = func(uploadURL *url.URL, filename string, r *http.Request, cancelChan <-chan struct{}) (*http.Response, *url.URL, error) {
+						closedChan <- true
+						Eventually(cancelChan).Should(BeClosed())
+						return nil, nil, errors.New("cancelled")
+					}
+				})
+
+				It("responds with an error code", func() {
+					Ω(fakeResponseWriter.Code).Should(Equal(http.StatusInternalServerError))
+				})
+			})
+
+			Context("and we are polling", func() {
+				BeforeEach(func() {
+					pollUrl, urlParseErr := url.Parse("http://poll-url.com")
+					Ω(urlParseErr).ShouldNot(HaveOccurred())
+					uploadResponse := &http.Response{StatusCode: http.StatusOK}
+
+					uploader.UploadReturns(uploadResponse, pollUrl, nil)
+
+					closedChan := make(chan bool)
+					fakeResponseWriter = test_helpers.NewFakeResponseWriter(closedChan)
+					responseWriter = fakeResponseWriter
+
+					poller.PollStub = func(fallbackURL *url.URL, res *http.Response, cancelChan <-chan struct{}) error {
+						closedChan <- true
+						Eventually(cancelChan).Should(BeClosed())
+						return errors.New("cancelled")
+					}
+				})
+
+				It("responds with an error code", func() {
+					Ω(fakeResponseWriter.Code).Should(Equal(http.StatusInternalServerError))
+				})
+			})
+		})
+
+		Context("when the request times out", func() {
+			BeforeEach(func() {
+				var err error
+				incomingRequest, err = http.NewRequest(
+					"POST",
+					fmt.Sprintf("http://example.com?%s=upload-uri.com&timeout=1", models.CcDropletUploadUriKey),
+					bytes.NewBufferString(""),
+				)
+				Ω(err).ShouldNot(HaveOccurred())
+			})
+
+			Context("and we are uploading", func() {
+				BeforeEach(func() {
+					uploader.UploadStub = func(uploadURL *url.URL, filename string, r *http.Request, cancelChan <-chan struct{}) (*http.Response, *url.URL, error) {
+						Eventually(cancelChan, 2*time.Second).Should(BeClosed())
+						return nil, nil, errors.New("timeout")
+					}
+				})
+
+				It("responds with an error code", func() {
+					Ω(outgoingResponse.Code).Should(Equal(http.StatusInternalServerError))
+				})
+			})
+
+			Context("and we are polling", func() {
+				BeforeEach(func() {
+					poller.PollStub = func(fallbackURL *url.URL, res *http.Response, cancelChan <-chan struct{}) error {
+						Eventually(cancelChan, 2*time.Second).Should(BeClosed())
+						return errors.New("timeout")
+					}
+				})
+
+				It("responds with an error code", func() {
+					Ω(outgoingResponse.Code).Should(Equal(http.StatusInternalServerError))
 				})
 			})
 		})

@@ -6,7 +6,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"time"
 
 	"github.com/cloudfoundry-incubator/file-server/ccclient"
 	"github.com/cloudfoundry-incubator/file-server/ccclient/test_helpers"
@@ -224,11 +223,13 @@ var _ = Describe("Uploader", func() {
 		Context("when cancelling uploads", func() {
 			var cancelChan chan struct{}
 			var uploadCompleted chan struct{}
+			var uploadRequestChan chan *http.Request
 
 			BeforeEach(func() {
 				cancelChan = make(chan struct{})
-				transport = test_helpers.NewFakeTimedRoundTripper(
-					1*time.Second,
+				uploadRequestChan = make(chan *http.Request)
+				transport = test_helpers.NewFakeRoundTripper(
+					uploadRequestChan,
 					map[string]test_helpers.RespErrorPair{
 						"example.com": test_helpers.RespErrorPair{responseWithCode(http.StatusOK), nil},
 					},
@@ -245,35 +246,33 @@ var _ = Describe("Uploader", func() {
 				}()
 			})
 
-			Context("when upload is cancelled", func() {
-				It("will fail with the primaryURL", func() {
+			It("will fail with the primaryURL", func() {
+				Consistently(uploadCompleted).ShouldNot(BeClosed())
+				close(cancelChan)
+
+				Eventually(uploadCompleted).Should(BeClosed())
+				Ω(uploadErr).Should(HaveOccurred())
+			})
+
+			Context("when a dial fails to the primary URL", func() {
+				BeforeEach(func() {
+					baseURL, _ = url.Parse("http://base.example.com")
+
+					transport = test_helpers.NewFakeRoundTripper(
+						uploadRequestChan,
+						map[string]test_helpers.RespErrorPair{
+							"example.com":      test_helpers.RespErrorPair{nil, &net.OpError{Op: "dial"}},
+							"base.example.com": test_helpers.RespErrorPair{responseWithCode(http.StatusOK), nil},
+						},
+					)
+				})
+				It("will fail on the baseURL", func() {
 					Consistently(uploadCompleted).ShouldNot(BeClosed())
 					close(cancelChan)
 
 					Eventually(uploadCompleted).Should(BeClosed())
 					Ω(uploadErr).Should(HaveOccurred())
-				})
-
-				Context("when a dial fails to the primary URL", func() {
-					BeforeEach(func() {
-						baseURL, _ = url.Parse("http://base.example.com")
-
-						transport = test_helpers.NewFakeTimedRoundTripper(
-							200*time.Millisecond,
-							map[string]test_helpers.RespErrorPair{
-								"example.com":      test_helpers.RespErrorPair{nil, &net.OpError{Op: "dial"}},
-								"base.example.com": test_helpers.RespErrorPair{responseWithCode(http.StatusOK), nil},
-							},
-						)
-					})
-					It("will fail on the baseURL", func() {
-						Consistently(uploadCompleted).ShouldNot(BeClosed())
-						close(cancelChan)
-
-						Eventually(uploadCompleted).Should(BeClosed())
-						Ω(uploadErr).Should(HaveOccurred())
-						Ω(uploadErr.Error()).Should(ContainSubstring("cancelled"))
-					})
+					Ω(uploadErr.Error()).Should(ContainSubstring("cancelled"))
 				})
 			})
 		})

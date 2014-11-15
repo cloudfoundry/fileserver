@@ -11,10 +11,6 @@ import (
 	"github.com/pivotal-golang/lager"
 )
 
-type requestCanceller interface {
-	CancelRequest(req *http.Request)
-}
-
 type uploader struct {
 	baseUrl *url.URL
 	client  *http.Client
@@ -33,7 +29,7 @@ func NewUploader(baseUrl *url.URL, transport http.RoundTripper) Uploader {
 
 const contentMD5Header = "Content-MD5"
 
-func (u *uploader) Upload(primaryUrl *url.URL, filename string, r *http.Request, cancelChan chan struct{}) (*http.Response, *url.URL, error) {
+func (u *uploader) Upload(primaryUrl *url.URL, filename string, r *http.Request, cancelChan <-chan struct{}) (*http.Response, *url.URL, error) {
 	if r.ContentLength <= 0 {
 		return &http.Response{StatusCode: http.StatusLengthRequired}, nil, fmt.Errorf("Missing Content Length")
 	}
@@ -91,7 +87,7 @@ func (u *uploader) Upload(primaryUrl *url.URL, filename string, r *http.Request,
 	return rsp, uploadReq.URL, err
 }
 
-func (u *uploader) do(req *http.Request, cancelChan chan struct{}) (*http.Response, error) {
+func (u *uploader) do(req *http.Request, cancelChan <-chan struct{}) (*http.Response, error) {
 	completion := make(chan struct{})
 	defer close(completion)
 

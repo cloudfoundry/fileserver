@@ -10,28 +10,28 @@ import (
 )
 
 type FakePoller struct {
-	PollStub        func(fallbackURL *url.URL, res *http.Response, closeChan <-chan bool) error
+	PollStub        func(fallbackURL *url.URL, res *http.Response, cancelChan <-chan struct{}) error
 	pollMutex       sync.RWMutex
 	pollArgsForCall []struct {
 		fallbackURL *url.URL
 		res         *http.Response
-		closeChan   <-chan bool
+		cancelChan  <-chan struct{}
 	}
 	pollReturns struct {
 		result1 error
 	}
 }
 
-func (fake *FakePoller) Poll(fallbackURL *url.URL, res *http.Response, closeChan <-chan bool) error {
+func (fake *FakePoller) Poll(fallbackURL *url.URL, res *http.Response, cancelChan <-chan struct{}) error {
 	fake.pollMutex.Lock()
 	fake.pollArgsForCall = append(fake.pollArgsForCall, struct {
 		fallbackURL *url.URL
 		res         *http.Response
-		closeChan   <-chan bool
-	}{fallbackURL, res, closeChan})
+		cancelChan  <-chan struct{}
+	}{fallbackURL, res, cancelChan})
 	fake.pollMutex.Unlock()
 	if fake.PollStub != nil {
-		return fake.PollStub(fallbackURL, res, closeChan)
+		return fake.PollStub(fallbackURL, res, cancelChan)
 	} else {
 		return fake.pollReturns.result1
 	}
@@ -43,10 +43,10 @@ func (fake *FakePoller) PollCallCount() int {
 	return len(fake.pollArgsForCall)
 }
 
-func (fake *FakePoller) PollArgsForCall(i int) (*url.URL, *http.Response, <-chan bool) {
+func (fake *FakePoller) PollArgsForCall(i int) (*url.URL, *http.Response, <-chan struct{}) {
 	fake.pollMutex.RLock()
 	defer fake.pollMutex.RUnlock()
-	return fake.pollArgsForCall[i].fallbackURL, fake.pollArgsForCall[i].res, fake.pollArgsForCall[i].closeChan
+	return fake.pollArgsForCall[i].fallbackURL, fake.pollArgsForCall[i].res, fake.pollArgsForCall[i].cancelChan
 }
 
 func (fake *FakePoller) PollReturns(result1 error) {

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
+	"time"
 
 	"github.com/cloudfoundry-incubator/file-server/ccclient"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
@@ -31,17 +33,30 @@ func (h *buildArtifactUploader) ServeHTTP(w http.ResponseWriter, r *http.Request
 	uploadUriParameter := r.URL.Query().Get(models.CcBuildArtifactsUploadUriKey)
 	if uploadUriParameter == "" {
 		requestLogger.Error("failed", MissingCCBuildArtifactsUploadUriKeyError)
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(MissingCCBuildArtifactsUploadUriKeyError.Error()))
 		return
 	}
 
 	uploadUrl, err := url.Parse(uploadUriParameter)
 	if err != nil {
-		requestLogger.Error("failed", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		requestLogger.Error("failed: Invalid upload uri", err)
+		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
 		return
+	}
+
+	timeout := 5 * time.Minute
+	timeoutParameter := r.URL.Query().Get(models.CcTimeoutKey)
+	if timeoutParameter != "" {
+		t, err := strconv.Atoi(timeoutParameter)
+		if err != nil {
+			requestLogger.Error("failed: Invalid timeout", err)
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(err.Error()))
+			return
+		}
+		timeout = time.Duration(t) * time.Second
 	}
 
 	requestLogger.Info("start", lager.Data{
@@ -49,7 +64,28 @@ func (h *buildArtifactUploader) ServeHTTP(w http.ResponseWriter, r *http.Request
 		"content-length": r.ContentLength,
 	})
 
-	uploadResponse, _, err := h.uploader.Upload(uploadUrl, "buildpack_cache.tgz", r)
+	cancelChan := make(chan struct{})
+	var writerClosed <-chan bool
+	closeNotifier, ok := w.(http.CloseNotifier)
+	if ok {
+		writerClosed = closeNotifier.CloseNotify()
+	}
+
+	done := make(chan struct{})
+	go func() {
+		timer := time.NewTimer(timeout)
+		select {
+		case <-writerClosed:
+			close(cancelChan)
+		case <-timer.C:
+			close(cancelChan)
+		case <-done:
+		}
+		timer.Stop()
+	}()
+
+	uploadResponse, _, err := h.uploader.Upload(uploadUrl, "buildpack_cache.tgz", r, cancelChan)
+	close(done)
 	if err != nil {
 		requestLogger.Error("failed", err)
 		if uploadResponse == nil {

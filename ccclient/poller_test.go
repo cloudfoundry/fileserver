@@ -29,11 +29,11 @@ var _ = Describe("Poller", func() {
 
 			pollURL                *url.URL
 			originalUploadResponse *http.Response
-			closeChan              chan bool
+			closeChan              chan struct{}
 		)
 
 		BeforeEach(func() {
-			closeChan = make(chan bool, 1)
+			closeChan = make(chan struct{})
 		})
 
 		JustBeforeEach(func() {
@@ -93,14 +93,41 @@ var _ = Describe("Poller", func() {
 					jobStatus = ccclient.JOB_QUEUED
 				})
 
-				Context("when the close channel is written to", func() {
+				Context("when the cancel channel is written to", func() {
 					BeforeEach(func() {
 						originalUploadResponse = responseWithBody(pollingResponseBody("http://example.com", jobStatus))
-						closeChan <- true
 					})
 
-					It("errors", func() {
-						Eventually(pollErrChan).Should(Receive(MatchError("upstream request was cancelled")))
+					Context("before the request is made", func() {
+						BeforeEach(func() {
+							close(closeChan)
+						})
+
+						It("errors", func() {
+							Eventually(pollErrChan).Should(Receive(MatchError("upstream request was cancelled")))
+						})
+					})
+
+					Context("during a request", func() {
+						var cancelChan chan struct{}
+
+						BeforeEach(func() {
+							pollRequestChan = make(chan *http.Request)
+							cancelChan = make(chan struct{})
+							transport = test_helpers.NewFakeRoundTripper(
+								pollRequestChan,
+								map[string]test_helpers.RespErrorPair{
+									"example.com": {responseWithBody(pollingResponseBody("http://example.com", ccclient.JOB_QUEUED)), nil},
+								},
+							)
+						})
+
+						It("errors", func() {
+							Eventually(pollRequestChan).Should(Receive())
+							close(cancelChan)
+							Eventually(pollRequestChan).Should(Receive())
+							Eventually(pollErrChan).Should(Receive(HaveOccurred()))
+						})
 					})
 				})
 

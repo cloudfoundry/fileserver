@@ -6,6 +6,9 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/cloudfoundry-incubator/cf-lager"
+	"github.com/pivotal-golang/lager"
 )
 
 const (
@@ -18,6 +21,7 @@ const (
 type poller struct {
 	client       *http.Client
 	pollInterval time.Duration
+	logger       lager.Logger
 }
 
 func NewPoller(transport http.RoundTripper, pollInterval time.Duration) Poller {
@@ -26,10 +30,11 @@ func NewPoller(transport http.RoundTripper, pollInterval time.Duration) Poller {
 			Transport: transport,
 		},
 		pollInterval: pollInterval,
+		logger:       cf_lager.New("Poller"),
 	}
 }
 
-func (p *poller) Poll(fallbackURL *url.URL, res *http.Response, closeChan <-chan bool) error {
+func (p *poller) Poll(fallbackURL *url.URL, res *http.Response, cancelChan <-chan struct{}) error {
 	body, err := p.parsePollingResponse(res)
 	if err != nil {
 		return err
@@ -60,7 +65,27 @@ func (p *poller) Poll(fallbackURL *url.URL, res *http.Response, closeChan <-chan
 				pollingUrl.Scheme = fallbackURL.Scheme
 				pollingUrl.Host = fallbackURL.Host
 			}
-			res, err := p.client.Get(pollingUrl.String())
+
+			req, err := http.NewRequest("GET", pollingUrl.String(), nil)
+			if err != nil {
+				return err
+			}
+
+			completion := make(chan struct{})
+			go func() {
+				select {
+				case <-cancelChan:
+					if canceller, ok := p.client.Transport.(requestCanceller); ok {
+						canceller.CancelRequest(req)
+					} else {
+						p.logger.Error("Invalid transport, does not support CancelRequest", nil, lager.Data{"transport": p.client.Transport})
+					}
+				case <-completion:
+				}
+			}()
+
+			res, err := p.client.Do(req)
+			close(completion)
 			if err != nil {
 				return err
 			}
@@ -69,7 +94,7 @@ func (p *poller) Poll(fallbackURL *url.URL, res *http.Response, closeChan <-chan
 			if err != nil {
 				return err
 			}
-		case <-closeChan:
+		case <-cancelChan:
 			return fmt.Errorf("upstream request was cancelled")
 		}
 	}

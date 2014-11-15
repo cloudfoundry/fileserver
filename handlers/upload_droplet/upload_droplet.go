@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/cloudfoundry-incubator/file-server/ccclient"
@@ -34,17 +35,30 @@ func (h *dropletUploader) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	uploadUriParameter := r.URL.Query().Get(models.CcDropletUploadUriKey)
 	if uploadUriParameter == "" {
 		requestLogger.Error("failed", MissingCCDropletUploadUriKeyError)
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(MissingCCDropletUploadUriKeyError.Error()))
 		return
 	}
 
 	uploadUrl, err := url.Parse(uploadUriParameter)
 	if err != nil {
-		requestLogger.Error("failed", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		requestLogger.Error("failed: Invalid upload uri", err)
+		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
 		return
+	}
+
+	timeout := 5 * time.Minute
+	timeoutParameter := r.URL.Query().Get(models.CcTimeoutKey)
+	if timeoutParameter != "" {
+		t, err := strconv.Atoi(timeoutParameter)
+		if err != nil {
+			requestLogger.Error("failed: Invalid timeout", err)
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(err.Error()))
+			return
+		}
+		timeout = time.Duration(t) * time.Second
 	}
 
 	query := uploadUrl.Query()
@@ -56,8 +70,29 @@ func (h *dropletUploader) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		"content-length": r.ContentLength,
 	})
 
+	cancelChan := make(chan struct{})
+	var writerClosed <-chan bool
+	closeNotifier, ok := w.(http.CloseNotifier)
+	if ok {
+		writerClosed = closeNotifier.CloseNotify()
+	}
+
+	done := make(chan struct{})
+	go func() {
+		timer := time.NewTimer(timeout)
+		select {
+		case <-writerClosed:
+			close(cancelChan)
+		case <-timer.C:
+			close(cancelChan)
+		case <-done:
+		}
+		timer.Stop()
+	}()
+	defer close(done)
+
 	uploadStart := time.Now()
-	uploadResponse, pollUrl, err := h.uploader.Upload(uploadUrl, "droplet.tgz", r)
+	uploadResponse, pollUrl, err := h.uploader.Upload(uploadUrl, "droplet.tgz", r, cancelChan)
 	if err != nil {
 		requestLogger.Error("failed", err)
 		if uploadResponse == nil {
@@ -70,13 +105,7 @@ func (h *dropletUploader) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	uploadEnd := time.Now()
 
-	var closeChan <-chan bool
-	closeNotifier, ok := w.(http.CloseNotifier)
-	if ok {
-		closeChan = closeNotifier.CloseNotify()
-	}
-
-	err = h.poller.Poll(pollUrl, uploadResponse, closeChan)
+	err = h.poller.Poll(pollUrl, uploadResponse, cancelChan)
 	if err != nil {
 		requestLogger.Error("failed", err)
 		w.WriteHeader(http.StatusInternalServerError)
