@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
-	"github.com/cloudfoundry-incubator/runtime-schema/router"
+	"github.com/cloudfoundry-incubator/runtime-schema/routes"
 	"github.com/cloudfoundry/gunk/urljoiner"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/config"
@@ -81,10 +81,10 @@ var _ = Describe("File server", func() {
 		v := url.Values{"async": []string{"true"}}
 		ccUrl.RawQuery = v.Encode()
 
-		route, ok := router.NewFileServerRoutes().RouteForHandler(router.FS_UPLOAD_DROPLET)
+		route, ok := routes.FileServerRoutes.FindRouteByName(routes.FS_UPLOAD_DROPLET)
 		Ω(ok).Should(BeTrue())
 
-		path, err := route.PathWithParams(map[string]string{"guid": appGuid})
+		path, err := route.CreatePath(map[string]string{"guid": appGuid})
 		Ω(err).ShouldNot(HaveOccurred())
 
 		u, err := url.Parse(urljoiner.Join(address, path))

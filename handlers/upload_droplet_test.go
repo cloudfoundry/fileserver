@@ -12,7 +12,6 @@ import (
 	"github.com/cloudfoundry-incubator/file-server/ccclient"
 	"github.com/cloudfoundry-incubator/file-server/handlers"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
-	"github.com/cloudfoundry-incubator/runtime-schema/router"
 	"github.com/cloudfoundry/gunk/test_server"
 	"github.com/cloudfoundry/gunk/urljoiner"
 	"github.com/pivotal-golang/lager"
@@ -94,7 +93,7 @@ var _ = Describe("UploadDroplet", func() {
 		uploader := ccclient.NewUploader(ccUrl, http.DefaultTransport)
 		poller := ccclient.NewPoller(http.DefaultTransport, 100*time.Millisecond)
 
-		r, err := router.NewFileServerRoutes().Router(handlers.New("", uploader, poller, logger))
+		r, err := handlers.New("", uploader, poller, logger)
 		Ω(err).ShouldNot(HaveOccurred())
 
 		u, err := url.Parse("http://file-server.com/v1/droplet/app-guid")
