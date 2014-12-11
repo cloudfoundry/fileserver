@@ -18,7 +18,7 @@ func ItFailsWhenTheContentLengthIsMissing(req **http.Request, resp **httptest.Re
 		})
 
 		It("does not make the request to CC", func() {
-			Ω(server.ReceivedRequestsCount()).Should(Equal(0))
+			Ω((*server).ReceivedRequestsCount()).Should(Equal(0))
 		})
 
 		It("responds with 411", func() {
@@ -34,7 +34,7 @@ func ItHandlesCCFailures(postStatusCode *int, resp **httptest.ResponseRecorder, 
 		})
 
 		It("makes the request to CC", func() {
-			Ω(server.ReceivedRequestsCount()).Should(Equal(1))
+			Ω((*server).ReceivedRequestsCount()).Should(Equal(1))
 		})
 
 		It("responds with the status code from the CC request", func() {
