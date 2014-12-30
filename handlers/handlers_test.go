@@ -56,8 +56,8 @@ var _ = Describe("Handlers", func() {
 		Ω(err).ShouldNot(HaveOccurred())
 		ccUrl.User = url.UserPassword("bob", "password")
 
-		uploader := ccclient.NewUploader(logger, ccUrl, http.DefaultTransport)
-		poller := ccclient.NewPoller(logger, http.DefaultTransport, 100*time.Millisecond)
+		uploader := ccclient.NewUploader(logger, ccUrl, http.DefaultClient)
+		poller := ccclient.NewPoller(logger, http.DefaultClient, 100*time.Millisecond)
 
 		handler, err = handlers.New("", uploader, poller, logger)
 		Ω(err).ShouldNot(HaveOccurred())

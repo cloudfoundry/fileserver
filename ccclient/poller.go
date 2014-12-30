@@ -24,11 +24,9 @@ type poller struct {
 	pollInterval time.Duration
 }
 
-func NewPoller(logger lager.Logger, transport http.RoundTripper, pollInterval time.Duration) Poller {
+func NewPoller(logger lager.Logger, httpClient *http.Client, pollInterval time.Duration) Poller {
 	return &poller{
-		client: &http.Client{
-			Transport: transport,
-		},
+		client:       httpClient,
 		pollInterval: pollInterval,
 		logger:       logger.Session("poller"),
 	}

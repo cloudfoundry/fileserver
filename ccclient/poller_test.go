@@ -38,7 +38,10 @@ var _ = Describe("Poller", func() {
 		})
 
 		JustBeforeEach(func() {
-			u = ccclient.NewPoller(lagertest.NewTestLogger("test"), transport, 10*time.Millisecond)
+			httpClient := &http.Client{
+				Transport: transport,
+			}
+			u = ccclient.NewPoller(lagertest.NewTestLogger("test"), httpClient, 10*time.Millisecond)
 			pollErrChan = make(chan error, 1)
 			go func(pec chan error) {
 				defer GinkgoRecover()

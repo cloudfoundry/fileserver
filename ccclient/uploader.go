@@ -17,13 +17,11 @@ type uploader struct {
 	client  *http.Client
 }
 
-func NewUploader(logger lager.Logger, baseUrl *url.URL, transport http.RoundTripper) Uploader {
+func NewUploader(logger lager.Logger, baseUrl *url.URL, httpClient *http.Client) Uploader {
 	return &uploader{
 		baseUrl: baseUrl,
-		client: &http.Client{
-			Transport: transport,
-		},
-		logger: logger.Session("uploader"),
+		client:  httpClient,
+		logger:  logger.Session("uploader"),
 	}
 }
 
