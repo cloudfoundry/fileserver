@@ -3,7 +3,6 @@ package main
 import (
 	"crypto/tls"
 	"flag"
-	"fmt"
 	"net"
 	"net/http"
 	"net/url"
@@ -25,7 +24,7 @@ import (
 
 var serverAddress = flag.String(
 	"address",
-	"",
+	"0.0.0.0:8080",
 	"Specifies the address to bind to",
 )
 
@@ -33,12 +32,6 @@ var staticDirectory = flag.String(
 	"staticDirectory",
 	"",
 	"Specifies the directory to serve local static files from",
-)
-
-var serverPort = flag.Int(
-	"port",
-	8080,
-	"Specifies the port of the file server",
 )
 
 var ccPassword = flag.String(
@@ -160,6 +153,5 @@ func initializeServer(logger lager.Logger) ifrit.Runner {
 		os.Exit(1)
 	}
 
-	address := fmt.Sprintf(":%d", *serverPort)
-	return http_server.New(address, fileServerHandler)
+	return http_server.New(*serverAddress, fileServerHandler)
 }

@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"time"
 
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
@@ -58,7 +57,7 @@ var _ = Describe("File server", func() {
 		args := append(
 			extras,
 			"-staticDirectory", servedDirectory,
-			"-port", strconv.Itoa(port),
+			"-address", fmt.Sprintf("localhost:%d", port),
 			"-ccAddress", fakeCC.Address(),
 			"-ccUsername", fakeCC.Username(),
 			"-ccPassword", fakeCC.Password(),
@@ -122,7 +121,7 @@ var _ = Describe("File server", func() {
 
 	Context("when started correctly", func() {
 		BeforeEach(func() {
-			session = start("-address", "localhost")
+			session = start()
 			ioutil.WriteFile(filepath.Join(servedDirectory, "test"), []byte("hello"), os.ModePerm)
 		})
 
@@ -143,7 +142,7 @@ var _ = Describe("File server", func() {
 		var contentLength = 100
 
 		BeforeEach(func() {
-			session = start("-address", "localhost")
+			session = start()
 		})
 
 		It("should upload the file...", func() {
