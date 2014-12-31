@@ -64,22 +64,12 @@ var ccJobPollingInterval = flag.Duration(
 	"the interval between job polling requests",
 )
 
-var dropsondeOrigin = flag.String(
-	"dropsondeOrigin",
-	"file_server",
-	"Origin identifier for dropsonde-emitted metrics.",
-)
-
-var dropsondeDestination = flag.String(
-	"dropsondeDestination",
-	"localhost:3457",
-	"Destination for dropsonde-emitted metrics.",
-)
-
 const (
 	ccUploadDialTimeout         = 10 * time.Second
 	ccUploadKeepAlive           = 30 * time.Second
 	ccUploadTLSHandshakeTimeout = 10 * time.Second
+	dropsondeDestination        = "localhost:3457"
+	dropsondeOrigin             = "file_server"
 )
 
 func main() {
@@ -106,7 +96,7 @@ func main() {
 }
 
 func initializeDropsonde(logger lager.Logger) {
-	err := dropsonde.Initialize(*dropsondeDestination, *dropsondeOrigin)
+	err := dropsonde.Initialize(dropsondeDestination, dropsondeOrigin)
 	if err != nil {
 		logger.Error("failed to initialize dropsonde: %v", err)
 	}
