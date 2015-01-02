@@ -6,19 +6,19 @@ import (
 	"net/http/httptest"
 	"strconv"
 
-	"github.com/cloudfoundry/gunk/test_server"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/ghttp"
 )
 
-func ItFailsWhenTheContentLengthIsMissing(req **http.Request, resp **httptest.ResponseRecorder, server **test_server.Server) {
+func ItFailsWhenTheContentLengthIsMissing(req **http.Request, resp **httptest.ResponseRecorder, server **ghttp.Server) {
 	Context("uploading the file, when the request is missing content length", func() {
 		BeforeEach(func() {
 			(*req).ContentLength = -1
 		})
 
 		It("does not make the request to CC", func() {
-			Ω((*server).ReceivedRequestsCount()).Should(Equal(0))
+			Ω((*server).ReceivedRequests()).Should(HaveLen(0))
 		})
 
 		It("responds with 411", func() {
@@ -27,14 +27,14 @@ func ItFailsWhenTheContentLengthIsMissing(req **http.Request, resp **httptest.Re
 	})
 }
 
-func ItHandlesCCFailures(postStatusCode *int, resp **httptest.ResponseRecorder, server **test_server.Server) {
+func ItHandlesCCFailures(postStatusCode *int, resp **httptest.ResponseRecorder, server **ghttp.Server) {
 	Context("when CC returns a non-succesful status code", func() {
 		BeforeEach(func() {
 			*postStatusCode = 403
 		})
 
 		It("makes the request to CC", func() {
-			Ω((*server).ReceivedRequestsCount()).Should(Equal(1))
+			Ω((*server).ReceivedRequests()).Should(HaveLen(1))
 		})
 
 		It("responds with the status code from the CC request", func() {

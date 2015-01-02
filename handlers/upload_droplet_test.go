@@ -12,19 +12,19 @@ import (
 	"github.com/cloudfoundry-incubator/file-server/ccclient"
 	"github.com/cloudfoundry-incubator/file-server/handlers"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
-	"github.com/cloudfoundry/gunk/test_server"
 	"github.com/cloudfoundry/gunk/urljoiner"
 	"github.com/pivotal-golang/lager"
 
 	. "github.com/cloudfoundry-incubator/file-server/handlers/test_helpers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/ghttp"
 )
 
 var _ = Describe("UploadDroplet", func() {
 	var (
 		ccAddress           string
-		fakeCloudController *test_server.Server
+		fakeCloudController *ghttp.Server
 		primaryUrl          *url.URL
 
 		ccUrl            string
@@ -48,15 +48,15 @@ var _ = Describe("UploadDroplet", func() {
 		uploadedFileName = ""
 		uploadedHeaders = nil
 
-		fakeCloudController = test_server.New()
+		fakeCloudController = ghttp.NewServer()
 		ccUrl = fakeCloudController.URL()
 
 		queryMatch = "async=true"
 
-		fakeCloudController.Append(test_server.CombineHandlers(
-			test_server.VerifyRequest("POST", "/staging/droplet/app-guid/upload"),
-			test_server.VerifyBasicAuth("bob", "password"),
-			test_server.RespondPtr(&postStatusCode, &postResponseBody),
+		fakeCloudController.AppendHandlers(ghttp.CombineHandlers(
+			ghttp.VerifyRequest("POST", "/staging/droplet/app-guid/upload"),
+			ghttp.VerifyBasicAuth("bob", "password"),
+			ghttp.RespondWithPtr(&postStatusCode, &postResponseBody),
 			func(w http.ResponseWriter, r *http.Request) {
 				Ω(r.URL.RawQuery).Should(Equal(queryMatch))
 				uploadedHeaders = r.Header
@@ -130,7 +130,7 @@ var _ = Describe("UploadDroplet", func() {
 		BeforeEach(func() {
 			postStatusCode = http.StatusCreated
 			postResponseBody = PollingResponseBody("my-job-guid", "queued", ccUrl)
-			fakeCloudController.Append(
+			fakeCloudController.AppendHandlers(
 				VerifyPollingRequest("my-job-guid", "queued", timeClicker),
 				VerifyPollingRequest("my-job-guid", "running", timeClicker),
 				VerifyPollingRequest("my-job-guid", "finished", timeClicker),
@@ -144,7 +144,7 @@ var _ = Describe("UploadDroplet", func() {
 
 			ItSucceeds := func() {
 				It("calls all the requests", func() {
-					Ω(fakeCloudController.ReceivedRequestsCount()).Should(Equal(4))
+					Ω(fakeCloudController.ReceivedRequests()).Should(HaveLen(4))
 
 					By("responds with 201 CREATED", func() {
 						Ω(outgoingResponse.Code).Should(Equal(http.StatusCreated))
@@ -202,7 +202,7 @@ var _ = Describe("UploadDroplet", func() {
 			})
 
 			It("falls over to the secondary url", func() {
-				Ω(fakeCloudController.ReceivedRequestsCount()).Should(Equal(4))
+				Ω(fakeCloudController.ReceivedRequests()).Should(HaveLen(4))
 
 				By("responds with 201 CREATED", func() {
 					Ω(outgoingResponse.Code).Should(Equal(http.StatusCreated))
@@ -215,7 +215,7 @@ var _ = Describe("UploadDroplet", func() {
 		BeforeEach(func() {
 			postStatusCode = http.StatusCreated
 			postResponseBody = PollingResponseBody("my-job-guid", "queued", ccUrl)
-			fakeCloudController.Append(
+			fakeCloudController.AppendHandlers(
 				VerifyPollingRequest("my-job-guid", "queued", timeClicker),
 				VerifyPollingRequest("my-job-guid", "running", timeClicker),
 				VerifyPollingRequest("my-job-guid", "finished", timeClicker),
@@ -223,7 +223,7 @@ var _ = Describe("UploadDroplet", func() {
 		})
 
 		It("stops polling after the first fail", func() {
-			Ω(fakeCloudController.ReceivedRequestsCount()).Should(Equal(4))
+			Ω(fakeCloudController.ReceivedRequests()).Should(HaveLen(4))
 
 			By("responds with 201", func() {
 				Ω(outgoingResponse.Code).Should(Equal(http.StatusCreated))
@@ -241,7 +241,7 @@ var _ = Describe("UploadDroplet", func() {
 		})
 
 		It("reports a 500", func() {
-			Ω(fakeCloudController.ReceivedRequestsCount()).Should(Equal(0))
+			Ω(fakeCloudController.ReceivedRequests()).Should(HaveLen(0))
 
 			By("responds with 201", func() {
 				Ω(outgoingResponse.Code).Should(Equal(http.StatusInternalServerError))
@@ -269,9 +269,9 @@ func PollingResponseBody(jobGuid, status string, baseUrl string) string {
 }
 
 func VerifyPollingRequest(jobGuid, status string, timeClicker chan time.Time) http.HandlerFunc {
-	return test_server.CombineHandlers(
-		test_server.VerifyRequest("GET", urljoiner.Join("/v2/jobs/", jobGuid)),
-		test_server.Respond(http.StatusOK, PollingResponseBody(jobGuid, status, "")),
+	return ghttp.CombineHandlers(
+		ghttp.VerifyRequest("GET", urljoiner.Join("/v2/jobs/", jobGuid)),
+		ghttp.RespondWith(http.StatusOK, PollingResponseBody(jobGuid, status, "")),
 		func(w http.ResponseWriter, r *http.Request) {
 			timeClicker <- time.Now()
 		},

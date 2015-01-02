@@ -11,17 +11,17 @@ import (
 	"github.com/cloudfoundry-incubator/file-server/handlers"
 	"github.com/cloudfoundry-incubator/file-server/handlers/test_helpers"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
-	"github.com/cloudfoundry/gunk/test_server"
 	"github.com/pivotal-golang/lager"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/ghttp"
 )
 
 var _ = Describe("UploadBuildArtifacts", func() {
 	var (
 		ccAddress           string
-		fakeCloudController *test_server.Server
+		fakeCloudController *ghttp.Server
 		primaryUrl          *url.URL
 
 		postStatusCode   int
@@ -41,12 +41,12 @@ var _ = Describe("UploadBuildArtifacts", func() {
 		uploadedBytes = nil
 		uploadedFileName = ""
 
-		fakeCloudController = test_server.New()
+		fakeCloudController = ghttp.NewServer()
 
-		fakeCloudController.Append(test_server.CombineHandlers(
-			test_server.VerifyRequest("POST", "/staging/buildpack_cache/app-guid/upload"),
-			test_server.VerifyBasicAuth("bob", "password"),
-			test_server.RespondPtr(&postStatusCode, &postResponseBody),
+		fakeCloudController.AppendHandlers(ghttp.CombineHandlers(
+			ghttp.VerifyRequest("POST", "/staging/buildpack_cache/app-guid/upload"),
+			ghttp.VerifyBasicAuth("bob", "password"),
+			ghttp.RespondWithPtr(&postStatusCode, &postResponseBody),
 			func(w http.ResponseWriter, r *http.Request) {
 				uploadedHeaders = r.Header
 				file, fileHeader, err := r.FormFile(ccclient.FormField)
@@ -105,7 +105,7 @@ var _ = Describe("UploadBuildArtifacts", func() {
 			})
 
 			It("makes the request to CC", func() {
-				Ω(fakeCloudController.ReceivedRequestsCount()).Should(Equal(1))
+				Ω(fakeCloudController.ReceivedRequests()).Should(HaveLen(1))
 
 				By("responds with 200 OK", func() {
 					Ω(outgoingResponse.Code).Should(Equal(http.StatusOK))
@@ -128,7 +128,7 @@ var _ = Describe("UploadBuildArtifacts", func() {
 			})
 
 			It("falls over to the secondary url", func() {
-				Ω(fakeCloudController.ReceivedRequestsCount()).Should(Equal(1))
+				Ω(fakeCloudController.ReceivedRequests()).Should(HaveLen(1))
 
 				By("responds with 200 CREATED", func() {
 					Ω(outgoingResponse.Code).Should(Equal(http.StatusOK))
@@ -147,7 +147,7 @@ var _ = Describe("UploadBuildArtifacts", func() {
 		})
 
 		It("reports a 500", func() {
-			Ω(fakeCloudController.ReceivedRequestsCount()).Should(Equal(0))
+			Ω(fakeCloudController.ReceivedRequests()).Should(HaveLen(0))
 
 			By("responds with 201", func() {
 				Ω(outgoingResponse.Code).Should(Equal(http.StatusInternalServerError))
