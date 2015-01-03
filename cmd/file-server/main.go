@@ -74,17 +74,24 @@ const (
 
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
-
+	cf_debug_server.AddFlags(flag.CommandLine)
 	flag.Parse()
 
 	logger := cf_lager.New("file-server")
-	cf_debug_server.Run()
 
 	initializeDropsonde(logger)
 
-	group := grouper.NewOrdered(os.Interrupt, grouper.Members{
+	members := grouper.Members{
 		{"file server", initializeServer(logger)},
-	})
+	}
+
+	if dbgAddr := cf_debug_server.DebugAddress(flag.CommandLine); dbgAddr != "" {
+		members = append(grouper.Members{
+			{"debug-server", cf_debug_server.Runner(dbgAddr)},
+		}, members...)
+	}
+
+	group := grouper.NewOrdered(os.Interrupt, members)
 
 	monitor := ifrit.Invoke(sigmon.New(group))
 	logger.Info("ready")
