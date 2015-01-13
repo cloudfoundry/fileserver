@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/cloudfoundry-incubator/cf-lager"
 	"github.com/pivotal-golang/lager"
 )
 
@@ -19,18 +18,19 @@ const (
 )
 
 type poller struct {
+	logger lager.Logger
+
 	client       *http.Client
 	pollInterval time.Duration
-	logger       lager.Logger
 }
 
-func NewPoller(transport http.RoundTripper, pollInterval time.Duration) Poller {
+func NewPoller(logger lager.Logger, transport http.RoundTripper, pollInterval time.Duration) Poller {
 	return &poller{
 		client: &http.Client{
 			Transport: transport,
 		},
 		pollInterval: pollInterval,
-		logger:       cf_lager.New("Poller"),
+		logger:       logger.Session("poller"),
 	}
 }
 

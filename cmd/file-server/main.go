@@ -75,6 +75,7 @@ const (
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	cf_debug_server.AddFlags(flag.CommandLine)
+	cf_lager.AddFlags(flag.CommandLine)
 	flag.Parse()
 
 	logger := cf_lager.New("file-server")
@@ -141,8 +142,8 @@ func initializeServer(logger lager.Logger) ifrit.Runner {
 		TLSHandshakeTimeout: ccUploadTLSHandshakeTimeout,
 	}
 
-	uploader := ccclient.NewUploader(ccUrl, transport)
-	poller := ccclient.NewPoller(transport, *ccJobPollingInterval)
+	uploader := ccclient.NewUploader(logger, ccUrl, transport)
+	poller := ccclient.NewPoller(logger, transport, *ccJobPollingInterval)
 
 	fileServerHandler, err := handlers.New(*staticDirectory, uploader, poller, logger)
 	if err != nil {

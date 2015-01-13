@@ -11,6 +11,7 @@ import (
 
 	"github.com/cloudfoundry-incubator/file-server/ccclient"
 	"github.com/cloudfoundry-incubator/file-server/ccclient/test_helpers"
+	"github.com/pivotal-golang/lager/lagertest"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -37,7 +38,7 @@ var _ = Describe("Poller", func() {
 		})
 
 		JustBeforeEach(func() {
-			u = ccclient.NewPoller(transport, 10*time.Millisecond)
+			u = ccclient.NewPoller(lagertest.NewTestLogger("test"), transport, 10*time.Millisecond)
 			pollErrChan = make(chan error, 1)
 			go func(pec chan error) {
 				defer GinkgoRecover()

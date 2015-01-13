@@ -9,6 +9,7 @@ import (
 
 	"github.com/cloudfoundry-incubator/file-server/ccclient"
 	"github.com/cloudfoundry-incubator/file-server/ccclient/test_helpers"
+	"github.com/pivotal-golang/lager/lagertest"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -41,7 +42,7 @@ var _ = Describe("Uploader", func() {
 
 		Context("when not cancelling", func() {
 			JustBeforeEach(func() {
-				u = ccclient.NewUploader(baseURL, transport)
+				u = ccclient.NewUploader(lagertest.NewTestLogger("test"), baseURL, transport)
 				response, usedURL, uploadErr = u.Upload(primaryURL, filename, incomingRequest, make(chan struct{}))
 			})
 
@@ -240,7 +241,7 @@ var _ = Describe("Uploader", func() {
 				uploadCompleted = make(chan struct{})
 
 				go func() {
-					u = ccclient.NewUploader(baseURL, transport)
+					u = ccclient.NewUploader(lagertest.NewTestLogger("test"), baseURL, transport)
 					response, usedURL, uploadErr = u.Upload(primaryURL, filename, incomingRequest, cancelChan)
 					close(uploadCompleted)
 				}()

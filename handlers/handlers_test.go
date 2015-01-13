@@ -14,7 +14,7 @@ import (
 	"github.com/cloudfoundry-incubator/file-server/handlers"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry/gunk/urljoiner"
-	"github.com/pivotal-golang/lager"
+	"github.com/pivotal-golang/lager/lagertest"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -23,7 +23,7 @@ import (
 
 var _ = Describe("Handlers", func() {
 	var (
-		logger lager.Logger
+		logger *lagertest.TestLogger
 
 		fakeCloudController *ghttp.Server
 		primaryUrl          *url.URL
@@ -42,7 +42,8 @@ var _ = Describe("Handlers", func() {
 
 	BeforeEach(func() {
 		var err error
-		logger = lager.NewLogger("fakelogger")
+
+		logger = lagertest.NewTestLogger("test")
 
 		buffer := bytes.NewBufferString("the file I'm uploading")
 		incomingRequest, err = http.NewRequest("POST", "", buffer)
@@ -55,8 +56,8 @@ var _ = Describe("Handlers", func() {
 		Ω(err).ShouldNot(HaveOccurred())
 		ccUrl.User = url.UserPassword("bob", "password")
 
-		uploader := ccclient.NewUploader(ccUrl, http.DefaultTransport)
-		poller := ccclient.NewPoller(http.DefaultTransport, 100*time.Millisecond)
+		uploader := ccclient.NewUploader(logger, ccUrl, http.DefaultTransport)
+		poller := ccclient.NewPoller(logger, http.DefaultTransport, 100*time.Millisecond)
 
 		handler, err = handlers.New("", uploader, poller, logger)
 		Ω(err).ShouldNot(HaveOccurred())

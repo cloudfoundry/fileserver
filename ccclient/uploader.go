@@ -7,23 +7,23 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/cloudfoundry-incubator/cf-lager"
 	"github.com/pivotal-golang/lager"
 )
 
 type uploader struct {
+	logger lager.Logger
+
 	baseUrl *url.URL
 	client  *http.Client
-	logger  lager.Logger
 }
 
-func NewUploader(baseUrl *url.URL, transport http.RoundTripper) Uploader {
+func NewUploader(logger lager.Logger, baseUrl *url.URL, transport http.RoundTripper) Uploader {
 	return &uploader{
 		baseUrl: baseUrl,
 		client: &http.Client{
 			Transport: transport,
 		},
-		logger: cf_lager.New("Uploader"),
+		logger: logger.Session("uploader"),
 	}
 }
 
