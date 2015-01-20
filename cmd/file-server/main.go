@@ -99,8 +99,11 @@ func main() {
 
 	err := <-monitor.Wait()
 	if err != nil {
-		logger.Fatal("exited-with-failure", err)
+		logger.Error("exited-with-failure", err)
+		os.Exit(1)
 	}
+
+	logger.Info("exited")
 }
 
 func initializeDropsonde(logger lager.Logger) {
