@@ -1,5 +1,3 @@
-[![Build Status](https://travis-ci.org/cloudfoundry-incubator/file-server.svg)](https://travis-ci.org/cloudfoundry-incubator/file-server)
-[![Coverage Status](https://coveralls.io/repos/cloudfoundry-incubator/file-server/badge.png)](https://coveralls.io/r/cloudfoundry-incubator/file-server)
 File Server
 ===========
 
