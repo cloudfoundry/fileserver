@@ -84,7 +84,7 @@ func (h *buildArtifactUploader) ServeHTTP(w http.ResponseWriter, r *http.Request
 		timer.Stop()
 	}()
 
-	uploadResponse, _, err := h.uploader.Upload(uploadUrl, "buildpack_cache.tgz", r, cancelChan)
+	uploadResponse, err := h.uploader.Upload(uploadUrl, "buildpack_cache.tgz", r, cancelChan)
 	close(done)
 	if err != nil {
 		requestLogger.Error("failed", err)

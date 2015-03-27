@@ -26,7 +26,7 @@ var _ = Describe("Handlers", func() {
 		logger *lagertest.TestLogger
 
 		fakeCloudController *ghttp.Server
-		primaryUrl          *url.URL
+		uploadURL           *url.URL
 
 		incomingRequest  *http.Request
 		outgoingResponse *httptest.ResponseRecorder
@@ -52,11 +52,7 @@ var _ = Describe("Handlers", func() {
 
 		fakeCloudController = ghttp.NewServer()
 
-		ccUrl, err := url.Parse(fakeCloudController.URL())
-		Ω(err).ShouldNot(HaveOccurred())
-		ccUrl.User = url.UserPassword("bob", "password")
-
-		uploader := ccclient.NewUploader(logger, ccUrl, http.DefaultClient)
+		uploader := ccclient.NewUploader(logger, http.DefaultClient)
 		poller := ccclient.NewPoller(logger, http.DefaultClient, 100*time.Millisecond)
 
 		handler, err = handlers.New("", uploader, poller, logger)
@@ -98,19 +94,19 @@ var _ = Describe("Handlers", func() {
 				},
 			))
 
-			primaryUrl, err = url.Parse(fakeCloudController.URL())
+			uploadURL, err = url.Parse(fakeCloudController.URL())
 			Ω(err).ShouldNot(HaveOccurred())
 
-			primaryUrl.User = url.UserPassword("bob", "password")
-			primaryUrl.Path = "/staging/droplet/app-guid/upload"
-			primaryUrl.RawQuery = url.Values{"async": []string{"true"}}.Encode()
+			uploadURL.User = url.UserPassword("bob", "password")
+			uploadURL.Path = "/staging/droplet/app-guid/upload"
+			uploadURL.RawQuery = url.Values{"async": []string{"true"}}.Encode()
 		})
 
 		JustBeforeEach(func() {
 			u, err := url.Parse("http://file-server.com/v1/droplet/app-guid")
 			Ω(err).ShouldNot(HaveOccurred())
 
-			v := url.Values{models.CcDropletUploadUriKey: []string{primaryUrl.String()}}
+			v := url.Values{models.CcDropletUploadUriKey: []string{uploadURL.String()}}
 			u.RawQuery = v.Encode()
 			incomingRequest.URL = u
 
@@ -225,17 +221,17 @@ var _ = Describe("Handlers", func() {
 				},
 			))
 
-			primaryUrl, err = url.Parse(fakeCloudController.URL())
+			uploadURL, err = url.Parse(fakeCloudController.URL())
 			Ω(err).ShouldNot(HaveOccurred())
 
-			primaryUrl.User = url.UserPassword("bob", "password")
-			primaryUrl.Path = "/staging/buildpack_cache/app-guid/upload"
+			uploadURL.User = url.UserPassword("bob", "password")
+			uploadURL.Path = "/staging/buildpack_cache/app-guid/upload"
 		})
 
 		JustBeforeEach(func() {
 			u, err := url.Parse("http://file-server.com/v1/build_artifacts/app-guid")
 			Ω(err).ShouldNot(HaveOccurred())
-			v := url.Values{models.CcBuildArtifactsUploadUriKey: []string{primaryUrl.String()}}
+			v := url.Values{models.CcBuildArtifactsUploadUriKey: []string{uploadURL.String()}}
 			u.RawQuery = v.Encode()
 			incomingRequest.URL = u
 

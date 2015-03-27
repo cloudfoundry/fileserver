@@ -92,7 +92,7 @@ func (h *dropletUploader) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer close(done)
 
 	uploadStart := time.Now()
-	uploadResponse, pollUrl, err := h.uploader.Upload(uploadUrl, "droplet.tgz", r, cancelChan)
+	uploadResponse, err := h.uploader.Upload(uploadUrl, "droplet.tgz", r, cancelChan)
 	if err != nil {
 		requestLogger.Error("failed", err)
 		if uploadResponse == nil {
@@ -105,7 +105,7 @@ func (h *dropletUploader) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	uploadEnd := time.Now()
 
-	err = h.poller.Poll(pollUrl, uploadResponse, cancelChan)
+	err = h.poller.Poll(uploadUrl, uploadResponse, cancelChan)
 	if err != nil {
 		requestLogger.Error("failed", err)
 		w.WriteHeader(http.StatusInternalServerError)

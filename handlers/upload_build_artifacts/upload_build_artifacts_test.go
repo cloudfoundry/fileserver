@@ -72,7 +72,7 @@ var _ = Describe("UploadBuildArtifacts", func() {
 				Ω(err).ShouldNot(HaveOccurred())
 
 				uploader = fake_ccclient.FakeUploader{}
-				uploader.UploadReturns(nil, nil, errors.New("some-error"))
+				uploader.UploadReturns(nil, errors.New("some-error"))
 			})
 
 			It("responds with an error code", func() {
@@ -96,7 +96,7 @@ var _ = Describe("UploadBuildArtifacts", func() {
 				Ω(err).ShouldNot(HaveOccurred())
 
 				uploader = fake_ccclient.FakeUploader{}
-				uploader.UploadReturns(&http.Response{StatusCode: 404}, nil, errors.New("some-error"))
+				uploader.UploadReturns(&http.Response{StatusCode: 404}, errors.New("some-error"))
 			})
 
 			It("responds with an error code", func() {
@@ -120,7 +120,7 @@ var _ = Describe("UploadBuildArtifacts", func() {
 				Ω(err).ShouldNot(HaveOccurred())
 
 				uploader = fake_ccclient.FakeUploader{}
-				uploader.UploadReturns(&http.Response{StatusCode: http.StatusOK}, nil, nil)
+				uploader.UploadReturns(&http.Response{StatusCode: http.StatusOK}, nil)
 			})
 
 			It("responds with a status OK", func() {
@@ -145,10 +145,10 @@ var _ = Describe("UploadBuildArtifacts", func() {
 				responseWriter = fakeResponseWriter
 
 				uploader = fake_ccclient.FakeUploader{}
-				uploader.UploadStub = func(uploadURL *url.URL, filename string, r *http.Request, cancelChan <-chan struct{}) (*http.Response, *url.URL, error) {
+				uploader.UploadStub = func(uploadURL *url.URL, filename string, r *http.Request, cancelChan <-chan struct{}) (*http.Response, error) {
 					closedChan <- true
 					Eventually(cancelChan).Should(BeClosed())
-					return nil, nil, errors.New("cancelled")
+					return nil, errors.New("cancelled")
 				}
 			})
 
@@ -168,9 +168,9 @@ var _ = Describe("UploadBuildArtifacts", func() {
 				Ω(err).ShouldNot(HaveOccurred())
 
 				uploader = fake_ccclient.FakeUploader{}
-				uploader.UploadStub = func(uploadURL *url.URL, filename string, r *http.Request, cancelChan <-chan struct{}) (*http.Response, *url.URL, error) {
+				uploader.UploadStub = func(uploadURL *url.URL, filename string, r *http.Request, cancelChan <-chan struct{}) (*http.Response, error) {
 					Eventually(cancelChan, 2*time.Second).Should(BeClosed())
-					return nil, nil, errors.New("cancelled")
+					return nil, errors.New("cancelled")
 				}
 			})
 

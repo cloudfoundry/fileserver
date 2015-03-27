@@ -10,79 +10,61 @@ import (
 	"github.com/pivotal-golang/lager"
 )
 
+const MAX_UPLOAD_RETRIES = 3
+
 type uploader struct {
 	logger lager.Logger
-
-	baseUrl *url.URL
-	client  *http.Client
+	client *http.Client
 }
 
-func NewUploader(logger lager.Logger, baseUrl *url.URL, httpClient *http.Client) Uploader {
+func NewUploader(logger lager.Logger, httpClient *http.Client) Uploader {
 	return &uploader{
-		baseUrl: baseUrl,
-		client:  httpClient,
-		logger:  logger.Session("uploader"),
+		client: httpClient,
+		logger: logger.Session("uploader"),
 	}
 }
 
 const contentMD5Header = "Content-MD5"
 
-func (u *uploader) Upload(primaryUrl *url.URL, filename string, r *http.Request, cancelChan <-chan struct{}) (*http.Response, *url.URL, error) {
+func (u *uploader) Upload(uploadURL *url.URL, filename string, r *http.Request, cancelChan <-chan struct{}) (*http.Response, error) {
 	if r.ContentLength <= 0 {
-		return &http.Response{StatusCode: http.StatusLengthRequired}, nil, fmt.Errorf("Missing Content Length")
+		return &http.Response{StatusCode: http.StatusLengthRequired}, fmt.Errorf("Missing Content Length")
 	}
 	defer r.Body.Close()
 
 	uploadReq, err := newMultipartRequestFromReader(r.ContentLength, r.Body, filename)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	uploadReq.Header.Set(contentMD5Header, r.Header.Get(contentMD5Header))
-
-	// try the fast path
-	uploadReq.URL = primaryUrl
-	if primaryUrl.User != nil {
-		if password, set := primaryUrl.User.Password(); set {
-			uploadReq.SetBasicAuth(primaryUrl.User.Username(), password)
+	uploadReq.URL = uploadURL
+	if uploadURL.User != nil {
+		if password, set := uploadURL.User.Password(); set {
+			uploadReq.SetBasicAuth(uploadURL.User.Username(), password)
 		}
 	}
 
-	rsp, err := u.do(uploadReq, cancelChan)
-	if err == nil {
-		return rsp, uploadReq.URL, err
-	}
+	var rsp *http.Response
+	var uploadErr error
+	for attempt := 0; attempt < MAX_UPLOAD_RETRIES; attempt++ {
+		rsp, uploadErr = u.do(uploadReq, cancelChan)
+		if uploadErr == nil {
+			break
+		}
 
-	// not a connect (dial) error
-	var nestedErr error = err
-	if urlErr, ok := err.(*url.Error); ok {
-		nestedErr = urlErr.Err
-	}
-	if netErr, ok := nestedErr.(*net.OpError); !ok || netErr.Op != "dial" {
-		return rsp, nil, err
-	}
+		// not a connect (dial) error
+		var nestedErr error = uploadErr
+		if urlErr, ok := nestedErr.(*url.Error); ok {
+			nestedErr = urlErr.Err
+		}
 
-	// try the slow path
-	uploadReq, err = newMultipartRequestFromReader(r.ContentLength, r.Body, filename)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	uploadReq.Header.Set(contentMD5Header, r.Header.Get(contentMD5Header))
-
-	uploadReq.URL.Scheme = u.baseUrl.Scheme
-	uploadReq.URL.Host = u.baseUrl.Host
-	if u.baseUrl.User != nil {
-		if password, set := u.baseUrl.User.Password(); set {
-			uploadReq.URL.User = u.baseUrl.User
-			uploadReq.SetBasicAuth(u.baseUrl.User.Username(), password)
+		if netErr, ok := nestedErr.(*net.OpError); !ok || netErr.Op != "dial" {
+			break
 		}
 	}
-	uploadReq.URL.Path = primaryUrl.Path
-	uploadReq.URL.RawQuery = primaryUrl.RawQuery
 
-	rsp, err = u.do(uploadReq, cancelChan)
-	return rsp, uploadReq.URL, err
+	return rsp, uploadErr
 }
 
 func (u *uploader) do(req *http.Request, cancelChan <-chan struct{}) (*http.Response, error) {

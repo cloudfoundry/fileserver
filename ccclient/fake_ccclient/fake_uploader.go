@@ -10,7 +10,7 @@ import (
 )
 
 type FakeUploader struct {
-	UploadStub        func(uploadURL *url.URL, filename string, r *http.Request, cancelChan <-chan struct{}) (*http.Response, *url.URL, error)
+	UploadStub        func(uploadURL *url.URL, filename string, r *http.Request, cancelChan <-chan struct{}) (*http.Response, error)
 	uploadMutex       sync.RWMutex
 	uploadArgsForCall []struct {
 		uploadURL  *url.URL
@@ -20,12 +20,11 @@ type FakeUploader struct {
 	}
 	uploadReturns struct {
 		result1 *http.Response
-		result2 *url.URL
-		result3 error
+		result2 error
 	}
 }
 
-func (fake *FakeUploader) Upload(uploadURL *url.URL, filename string, r *http.Request, cancelChan <-chan struct{}) (*http.Response, *url.URL, error) {
+func (fake *FakeUploader) Upload(uploadURL *url.URL, filename string, r *http.Request, cancelChan <-chan struct{}) (*http.Response, error) {
 	fake.uploadMutex.Lock()
 	fake.uploadArgsForCall = append(fake.uploadArgsForCall, struct {
 		uploadURL  *url.URL
@@ -37,7 +36,7 @@ func (fake *FakeUploader) Upload(uploadURL *url.URL, filename string, r *http.Re
 	if fake.UploadStub != nil {
 		return fake.UploadStub(uploadURL, filename, r, cancelChan)
 	} else {
-		return fake.uploadReturns.result1, fake.uploadReturns.result2, fake.uploadReturns.result3
+		return fake.uploadReturns.result1, fake.uploadReturns.result2
 	}
 }
 
@@ -53,13 +52,12 @@ func (fake *FakeUploader) UploadArgsForCall(i int) (*url.URL, string, *http.Requ
 	return fake.uploadArgsForCall[i].uploadURL, fake.uploadArgsForCall[i].filename, fake.uploadArgsForCall[i].r, fake.uploadArgsForCall[i].cancelChan
 }
 
-func (fake *FakeUploader) UploadReturns(result1 *http.Response, result2 *url.URL, result3 error) {
+func (fake *FakeUploader) UploadReturns(result1 *http.Response, result2 error) {
 	fake.UploadStub = nil
 	fake.uploadReturns = struct {
 		result1 *http.Response
-		result2 *url.URL
-		result3 error
-	}{result1, result2, result3}
+		result2 error
+	}{result1, result2}
 }
 
 var _ ccclient.Uploader = new(FakeUploader)

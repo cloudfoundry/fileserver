@@ -58,9 +58,6 @@ var _ = Describe("File server", func() {
 			extras,
 			"-staticDirectory", servedDirectory,
 			"-address", fmt.Sprintf("localhost:%d", port),
-			"-ccAddress", fakeCC.Address(),
-			"-ccUsername", fakeCC.Username(),
-			"-ccPassword", fakeCC.Password(),
 			"-skipCertVerify",
 		)
 

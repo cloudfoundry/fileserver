@@ -89,7 +89,7 @@ var _ = Describe("UploadDroplet", func() {
 				)
 				Ω(err).ShouldNot(HaveOccurred())
 
-				uploader.UploadReturns(nil, nil, errors.New("some-error"))
+				uploader.UploadReturns(nil, errors.New("some-error"))
 			})
 
 			It("responds with an error code", func() {
@@ -112,7 +112,7 @@ var _ = Describe("UploadDroplet", func() {
 				)
 				Ω(err).ShouldNot(HaveOccurred())
 
-				uploader.UploadReturns(&http.Response{StatusCode: 404}, nil, errors.New("some-error"))
+				uploader.UploadReturns(&http.Response{StatusCode: 404}, errors.New("some-error"))
 			})
 
 			It("responds with an error code", func() {
@@ -126,7 +126,6 @@ var _ = Describe("UploadDroplet", func() {
 		})
 
 		Context("When the upload succeeds", func() {
-			var pollUrl *url.URL
 			var uploadResponse *http.Response
 
 			BeforeEach(func() {
@@ -138,17 +137,15 @@ var _ = Describe("UploadDroplet", func() {
 				)
 				Ω(err).ShouldNot(HaveOccurred())
 
-				var urlParseErr error
-				pollUrl, urlParseErr = url.Parse("http://poll-url.com")
-				Ω(urlParseErr).ShouldNot(HaveOccurred())
 				uploadResponse = &http.Response{StatusCode: http.StatusOK}
 
-				uploader.UploadReturns(uploadResponse, pollUrl, nil)
+				uploader.UploadReturns(uploadResponse, nil)
 			})
 
 			It("Polls for success of the upload", func() {
+				uploadURL, _, _, _ := uploader.UploadArgsForCall(0)
 				pollArgsURL, pollArgsUploadResponse, _ := poller.PollArgsForCall(0)
-				Ω(pollArgsURL).Should(Equal(pollUrl))
+				Ω(pollArgsURL).Should(Equal(uploadURL))
 				Ω(pollArgsUploadResponse).Should(Equal(uploadResponse))
 			})
 
@@ -197,10 +194,10 @@ var _ = Describe("UploadDroplet", func() {
 					fakeResponseWriter = test_helpers.NewFakeResponseWriter(closedChan)
 					responseWriter = fakeResponseWriter
 
-					uploader.UploadStub = func(uploadURL *url.URL, filename string, r *http.Request, cancelChan <-chan struct{}) (*http.Response, *url.URL, error) {
+					uploader.UploadStub = func(uploadURL *url.URL, filename string, r *http.Request, cancelChan <-chan struct{}) (*http.Response, error) {
 						closedChan <- true
 						Eventually(cancelChan).Should(BeClosed())
-						return nil, nil, errors.New("cancelled")
+						return nil, errors.New("cancelled")
 					}
 				})
 
@@ -211,11 +208,8 @@ var _ = Describe("UploadDroplet", func() {
 
 			Context("and we are polling", func() {
 				BeforeEach(func() {
-					pollUrl, urlParseErr := url.Parse("http://poll-url.com")
-					Ω(urlParseErr).ShouldNot(HaveOccurred())
 					uploadResponse := &http.Response{StatusCode: http.StatusOK}
-
-					uploader.UploadReturns(uploadResponse, pollUrl, nil)
+					uploader.UploadReturns(uploadResponse, nil)
 
 					closedChan := make(chan bool)
 					fakeResponseWriter = test_helpers.NewFakeResponseWriter(closedChan)
@@ -247,9 +241,9 @@ var _ = Describe("UploadDroplet", func() {
 
 			Context("and we are uploading", func() {
 				BeforeEach(func() {
-					uploader.UploadStub = func(uploadURL *url.URL, filename string, r *http.Request, cancelChan <-chan struct{}) (*http.Response, *url.URL, error) {
+					uploader.UploadStub = func(uploadURL *url.URL, filename string, r *http.Request, cancelChan <-chan struct{}) (*http.Response, error) {
 						Eventually(cancelChan, 2*time.Second).Should(BeClosed())
-						return nil, nil, errors.New("timeout")
+						return nil, errors.New("timeout")
 					}
 				})
 

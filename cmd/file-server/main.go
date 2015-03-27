@@ -5,7 +5,6 @@ import (
 	"flag"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"runtime"
 	"time"
@@ -33,24 +32,6 @@ var staticDirectory = flag.String(
 	"staticDirectory",
 	"",
 	"Specifies the directory to serve local static files from",
-)
-
-var ccPassword = flag.String(
-	"ccPassword",
-	"",
-	"CloudController basic auth password",
-)
-
-var ccUsername = flag.String(
-	"ccUsername",
-	"",
-	"CloudController basic auth username",
-)
-
-var ccAddress = flag.String(
-	"ccAddress",
-	"",
-	"CloudController location",
 )
 
 var skipCertVerify = flag.Bool(
@@ -126,21 +107,6 @@ func initializeServer(logger lager.Logger) ifrit.Runner {
 	if *staticDirectory == "" {
 		logger.Fatal("static-directory-missing", nil)
 	}
-	if *ccAddress == "" {
-		logger.Fatal("cc-address-missing", nil)
-	}
-	ccUrl, err := url.Parse(*ccAddress)
-	if err != nil {
-		logger.Fatal("cc-address-parse-failure", err)
-	}
-	if *ccUsername == "" {
-		logger.Fatal("cc-username-missing", nil)
-	}
-	if *ccPassword == "" {
-		logger.Fatal("cc-password-missing", nil)
-	}
-
-	ccUrl.User = url.UserPassword(*ccUsername, *ccPassword)
 
 	transport := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
@@ -157,7 +123,7 @@ func initializeServer(logger lager.Logger) ifrit.Runner {
 	pollerHttpClient := cf_http.NewClient()
 	pollerHttpClient.Transport = transport
 
-	uploader := ccclient.NewUploader(logger, ccUrl, &http.Client{Transport: transport})
+	uploader := ccclient.NewUploader(logger, &http.Client{Transport: transport})
 	poller := ccclient.NewPoller(logger, pollerHttpClient, *ccJobPollingInterval)
 
 	fileServerHandler, err := handlers.New(*staticDirectory, uploader, poller, logger)
