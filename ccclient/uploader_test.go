@@ -54,9 +54,9 @@ var _ = Describe("Uploader", func() {
 				})
 
 				It("fails early if the content length is 0", func() {
-					Ω(response.StatusCode).Should(Equal(http.StatusLengthRequired))
+					Expect(response.StatusCode).To(Equal(http.StatusLengthRequired))
 
-					Ω(uploadErr).Should(HaveOccurred())
+					Expect(uploadErr).To(HaveOccurred())
 				})
 			})
 
@@ -76,13 +76,13 @@ var _ = Describe("Uploader", func() {
 				It("Makes an upload request using that multipart request", func() {
 					var uploadRequest *http.Request
 					Eventually(uploadRequestChan).Should(Receive(&uploadRequest))
-					Ω(uploadRequest.Header.Get("Content-Type")).Should(ContainSubstring("multipart/form-data; boundary="))
+					Expect(uploadRequest.Header.Get("Content-Type")).To(ContainSubstring("multipart/form-data; boundary="))
 				})
 
 				It("Forwards Content-MD5 header onto the upload request", func() {
 					var uploadRequest *http.Request
 					Eventually(uploadRequestChan).Should(Receive(&uploadRequest))
-					Ω(uploadRequest.Header.Get("Content-MD5")).Should(Equal("the-md5"))
+					Expect(uploadRequest.Header.Get("Content-MD5")).To(Equal("the-md5"))
 				})
 
 				Context("When the upload URL has basic auth credentials", func() {
@@ -93,14 +93,14 @@ var _ = Describe("Uploader", func() {
 					It("Forwards the basic auth credentials", func() {
 						var uploadRequest *http.Request
 						Eventually(uploadRequestChan).Should(Receive(&uploadRequest))
-						Ω(uploadRequest.URL.User).Should(Equal(url.UserPassword("bob", "cobb")))
+						Expect(uploadRequest.URL.User).To(Equal(url.UserPassword("bob", "cobb")))
 					})
 				})
 
 				Context("When uploading to the upload URL succeeds", func() {
 					It("Returns the respons, and no error", func() {
-						Ω(response).Should(Equal(responseWithCode(http.StatusOK))) // assumes (*http.Client).do doesn't modify the response from the roundtripper
-						Ω(uploadErr).ShouldNot(HaveOccurred())
+						Expect(response).To(Equal(responseWithCode(http.StatusOK))) // assumes (*http.Client).do doesn't modify the response from the roundtripper
+						Expect(uploadErr).NotTo(HaveOccurred())
 					})
 				})
 
@@ -118,17 +118,17 @@ var _ = Describe("Uploader", func() {
 						for i := 0; i < 3; i++ {
 							var uploadRequest *http.Request
 							Eventually(uploadRequestChan).Should(Receive(&uploadRequest))
-							Ω(uploadRequest.URL).Should(Equal(uploadURL))
+							Expect(uploadRequest.URL).To(Equal(uploadURL))
 						}
 					})
 
 					It("Returns the network error", func() {
-						Ω(uploadErr).Should(HaveOccurred())
+						Expect(uploadErr).To(HaveOccurred())
 
 						urlErr, ok := uploadErr.(*url.Error)
-						Ω(ok).Should(BeTrue())
+						Expect(ok).To(BeTrue())
 
-						Ω(urlErr.Err).Should(Equal(&net.OpError{Op: "dial"}))
+						Expect(urlErr.Err).To(Equal(&net.OpError{Op: "dial"}))
 					})
 				})
 
@@ -143,12 +143,12 @@ var _ = Describe("Uploader", func() {
 					})
 
 					It("Returns the network error", func() {
-						Ω(uploadErr).Should(HaveOccurred())
+						Expect(uploadErr).To(HaveOccurred())
 
 						urlErr, ok := uploadErr.(*url.Error)
-						Ω(ok).Should(BeTrue())
+						Expect(ok).To(BeTrue())
 
-						Ω(urlErr.Err).Should(Equal(&net.OpError{Op: "not-dial"}))
+						Expect(urlErr.Err).To(Equal(&net.OpError{Op: "not-dial"}))
 					})
 				})
 
@@ -163,7 +163,7 @@ var _ = Describe("Uploader", func() {
 					})
 
 					It("Returns the response", func() {
-						Ω(response).Should(Equal(responseWithCode(http.StatusUnauthorized))) // assumes (*http.Client).do doesn't modify the response from the roundtripper
+						Expect(response).To(Equal(responseWithCode(http.StatusUnauthorized))) // assumes (*http.Client).do doesn't modify the response from the roundtripper
 					})
 				})
 			})
@@ -203,7 +203,7 @@ var _ = Describe("Uploader", func() {
 				close(cancelChan)
 
 				Eventually(uploadCompleted).Should(BeClosed())
-				Ω(uploadErr).Should(HaveOccurred())
+				Expect(uploadErr).To(HaveOccurred())
 			})
 		})
 	})
@@ -212,7 +212,7 @@ var _ = Describe("Uploader", func() {
 func createValidRequest() *http.Request {
 	buffer := bytes.NewBufferString("file-upload-contents")
 	request, err := http.NewRequest("POST", "", buffer)
-	Ω(err).ShouldNot(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 
 	request.Header.Set("Content-MD5", "the-md5")
 	request.Body = ioutil.NopCloser(bytes.NewBufferString(""))

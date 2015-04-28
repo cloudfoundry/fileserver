@@ -45,20 +45,20 @@ var _ = Describe("UploadDroplet", func() {
 			BeforeEach(func() {
 				var err error
 				incomingRequest, err = http.NewRequest("POST", "http://example.com", bytes.NewBufferString(""))
-				Ω(err).ShouldNot(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("responds with an error code", func() {
-				Ω(outgoingResponse.Code).Should(Equal(http.StatusBadRequest))
+				Expect(outgoingResponse.Code).To(Equal(http.StatusBadRequest))
 			})
 
 			It("does not attempt to upload", func() {
-				Ω(uploader.UploadCallCount()).Should(BeZero())
+				Expect(uploader.UploadCallCount()).To(BeZero())
 			})
 
 			It("responds with the error message in the body", func() {
 				body, _ := outgoingResponse.Body.ReadString('\n')
-				Ω(body).Should(Equal(upload_droplet.MissingCCDropletUploadUriKeyError.Error()))
+				Expect(body).To(Equal(upload_droplet.MissingCCDropletUploadUriKeyError.Error()))
 			})
 		})
 
@@ -70,12 +70,12 @@ var _ = Describe("UploadDroplet", func() {
 					fmt.Sprintf("http://example.com?%s=upload-uri.com", models.CcDropletUploadUriKey),
 					bytes.NewBufferString(""),
 				)
-				Ω(err).ShouldNot(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("responds adds the async=true query parameter to the upload URI for the upload request", func() {
 				uploadUrl, _, _, _ := uploader.UploadArgsForCall(0)
-				Ω(uploadUrl).Should(MatchRegexp("async=true"))
+				Expect(uploadUrl).To(MatchRegexp("async=true"))
 			})
 		})
 
@@ -87,18 +87,18 @@ var _ = Describe("UploadDroplet", func() {
 					fmt.Sprintf("http://example.com?%s=upload-uri.com", models.CcDropletUploadUriKey),
 					bytes.NewBufferString(""),
 				)
-				Ω(err).ShouldNot(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 
 				uploader.UploadReturns(nil, errors.New("some-error"))
 			})
 
 			It("responds with an error code", func() {
-				Ω(outgoingResponse.Code).Should(Equal(http.StatusInternalServerError))
+				Expect(outgoingResponse.Code).To(Equal(http.StatusInternalServerError))
 			})
 
 			It("responds with the error message in the body", func() {
 				body, _ := outgoingResponse.Body.ReadString('\n')
-				Ω(body).Should(Equal("some-error"))
+				Expect(body).To(Equal("some-error"))
 			})
 		})
 
@@ -110,18 +110,18 @@ var _ = Describe("UploadDroplet", func() {
 					fmt.Sprintf("http://example.com?%s=upload-uri.com", models.CcDropletUploadUriKey),
 					bytes.NewBufferString(""),
 				)
-				Ω(err).ShouldNot(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 
 				uploader.UploadReturns(&http.Response{StatusCode: 404}, errors.New("some-error"))
 			})
 
 			It("responds with an error code", func() {
-				Ω(outgoingResponse.Code).Should(Equal(404))
+				Expect(outgoingResponse.Code).To(Equal(404))
 			})
 
 			It("responds with the error message in the body", func() {
 				body, _ := outgoingResponse.Body.ReadString('\n')
-				Ω(body).Should(Equal("some-error"))
+				Expect(body).To(Equal("some-error"))
 			})
 		})
 
@@ -135,7 +135,7 @@ var _ = Describe("UploadDroplet", func() {
 					fmt.Sprintf("http://example.com?%s=upload-uri.com", models.CcDropletUploadUriKey),
 					bytes.NewBufferString(""),
 				)
-				Ω(err).ShouldNot(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 
 				uploadResponse = &http.Response{StatusCode: http.StatusOK}
 
@@ -145,8 +145,8 @@ var _ = Describe("UploadDroplet", func() {
 			It("Polls for success of the upload", func() {
 				uploadURL, _, _, _ := uploader.UploadArgsForCall(0)
 				pollArgsURL, pollArgsUploadResponse, _ := poller.PollArgsForCall(0)
-				Ω(pollArgsURL).Should(Equal(uploadURL))
-				Ω(pollArgsUploadResponse).Should(Equal(uploadResponse))
+				Expect(pollArgsURL).To(Equal(uploadURL))
+				Expect(pollArgsUploadResponse).To(Equal(uploadResponse))
 			})
 
 			Context("When polling for success of the upload fails", func() {
@@ -155,12 +155,12 @@ var _ = Describe("UploadDroplet", func() {
 				})
 
 				It("responds with an error code", func() {
-					Ω(outgoingResponse.Code).Should(Equal(http.StatusInternalServerError))
+					Expect(outgoingResponse.Code).To(Equal(http.StatusInternalServerError))
 				})
 
 				It("responds with the error message in the body", func() {
 					body, _ := outgoingResponse.Body.ReadString('\n')
-					Ω(body).Should(Equal("poll-error"))
+					Expect(body).To(Equal("poll-error"))
 				})
 			})
 
@@ -170,7 +170,7 @@ var _ = Describe("UploadDroplet", func() {
 				})
 
 				It("responds with a status created", func() {
-					Ω(outgoingResponse.Code).Should(Equal(http.StatusCreated))
+					Expect(outgoingResponse.Code).To(Equal(http.StatusCreated))
 				})
 			})
 		})
@@ -185,7 +185,7 @@ var _ = Describe("UploadDroplet", func() {
 					fmt.Sprintf("http://example.com?%s=upload-uri.com", models.CcDropletUploadUriKey),
 					bytes.NewBufferString(""),
 				)
-				Ω(err).ShouldNot(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 			})
 
 			Context("and we are uploading", func() {
@@ -202,7 +202,7 @@ var _ = Describe("UploadDroplet", func() {
 				})
 
 				It("responds with an error code", func() {
-					Ω(fakeResponseWriter.Code).Should(Equal(http.StatusInternalServerError))
+					Expect(fakeResponseWriter.Code).To(Equal(http.StatusInternalServerError))
 				})
 			})
 
@@ -223,7 +223,7 @@ var _ = Describe("UploadDroplet", func() {
 				})
 
 				It("responds with an error code", func() {
-					Ω(fakeResponseWriter.Code).Should(Equal(http.StatusInternalServerError))
+					Expect(fakeResponseWriter.Code).To(Equal(http.StatusInternalServerError))
 				})
 			})
 		})
@@ -236,7 +236,7 @@ var _ = Describe("UploadDroplet", func() {
 					fmt.Sprintf("http://example.com?%s=upload-uri.com&timeout=1", models.CcDropletUploadUriKey),
 					bytes.NewBufferString(""),
 				)
-				Ω(err).ShouldNot(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 			})
 
 			Context("and we are uploading", func() {
@@ -248,7 +248,7 @@ var _ = Describe("UploadDroplet", func() {
 				})
 
 				It("responds with an error code", func() {
-					Ω(outgoingResponse.Code).Should(Equal(http.StatusInternalServerError))
+					Expect(outgoingResponse.Code).To(Equal(http.StatusInternalServerError))
 				})
 			})
 
@@ -261,7 +261,7 @@ var _ = Describe("UploadDroplet", func() {
 				})
 
 				It("responds with an error code", func() {
-					Ω(outgoingResponse.Code).Should(Equal(http.StatusInternalServerError))
+					Expect(outgoingResponse.Code).To(Equal(http.StatusInternalServerError))
 				})
 			})
 		})

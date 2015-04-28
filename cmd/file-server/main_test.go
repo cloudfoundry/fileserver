@@ -62,7 +62,7 @@ var _ = Describe("File server", func() {
 		)
 
 		session, err = gexec.Start(exec.Command(fileServerBinary, args...), GinkgoWriter, GinkgoWriter)
-		Ω(err).ShouldNot(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 
 		Eventually(session).Should(gbytes.Say("file-server.ready"))
 
@@ -71,25 +71,25 @@ var _ = Describe("File server", func() {
 
 	dropletUploadRequest := func(appGuid string, body io.Reader, contentLength int) *http.Request {
 		ccUrl, err := url.Parse(fakeCC.Address())
-		Ω(err).ShouldNot(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 		ccUrl.User = url.UserPassword(fakeCC.Username(), fakeCC.Password())
 		ccUrl.Path = urljoiner.Join("staging", "droplets", appGuid, "upload")
 		v := url.Values{"async": []string{"true"}}
 		ccUrl.RawQuery = v.Encode()
 
 		route, ok := routes.FileServerRoutes.FindRouteByName(routes.FS_UPLOAD_DROPLET)
-		Ω(ok).Should(BeTrue())
+		Expect(ok).To(BeTrue())
 
 		path, err := route.CreatePath(map[string]string{"guid": appGuid})
-		Ω(err).ShouldNot(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 
 		u, err := url.Parse(urljoiner.Join(address, path))
-		Ω(err).ShouldNot(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 		v = url.Values{models.CcDropletUploadUriKey: []string{ccUrl.String()}}
 		u.RawQuery = v.Encode()
 
 		postRequest, err := http.NewRequest("POST", u.String(), body)
-		Ω(err).ShouldNot(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 		postRequest.ContentLength = int64(contentLength)
 		postRequest.Header.Set("Content-Type", "application/octet-stream")
 
@@ -98,7 +98,7 @@ var _ = Describe("File server", func() {
 
 	BeforeEach(func() {
 		servedDirectory, err = ioutil.TempDir("", "file_server-test")
-		Ω(err).ShouldNot(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 		port = 8182 + config.GinkgoConfig.ParallelNode
 		address = fmt.Sprintf("http://localhost:%d", port)
 	})
@@ -111,7 +111,7 @@ var _ = Describe("File server", func() {
 	Context("when started without any arguments", func() {
 		It("should fail", func() {
 			session, err = gexec.Start(exec.Command(fileServerBinary), GinkgoWriter, GinkgoWriter)
-			Ω(err).ShouldNot(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 			Eventually(session).Should(gexec.Exit(2))
 		})
 	})
@@ -124,14 +124,14 @@ var _ = Describe("File server", func() {
 
 		It("should return that file on GET request", func() {
 			resp, err := http.Get(fmt.Sprintf("http://localhost:%d/v1/static/test", port))
-			Ω(err).ShouldNot(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 			defer resp.Body.Close()
 
-			Ω(resp.StatusCode).Should(Equal(http.StatusOK))
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
 			body, err := ioutil.ReadAll(resp.Body)
-			Ω(err).ShouldNot(HaveOccurred())
-			Ω(string(body)).Should(Equal("hello"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(body)).To(Equal("hello"))
 		})
 	})
 
@@ -146,11 +146,11 @@ var _ = Describe("File server", func() {
 			emitter := NewEmitter(contentLength)
 			postRequest := dropletUploadRequest(appGuid, emitter, contentLength)
 			resp, err := http.DefaultClient.Do(postRequest)
-			Ω(err).ShouldNot(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 			defer resp.Body.Close()
 
-			Ω(resp.StatusCode).Should(Equal(http.StatusCreated))
-			Ω(len(fakeCC.UploadedDroplets[appGuid])).Should(Equal(contentLength))
+			Expect(resp.StatusCode).To(Equal(http.StatusCreated))
+			Expect(len(fakeCC.UploadedDroplets[appGuid])).To(Equal(contentLength))
 		})
 	})
 })

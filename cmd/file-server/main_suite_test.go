@@ -24,7 +24,7 @@ func TestFileServer(t *testing.T) {
 
 var _ = SynchronizedBeforeSuite(func() []byte {
 	fileServerPath, err := gexec.Build("github.com/cloudfoundry-incubator/file-server/cmd/file-server")
-	Ω(err).ShouldNot(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 	return []byte(fileServerPath)
 }, func(fileServerPath []byte) {
 	fakeCCAddress := fmt.Sprintf("127.0.0.1:%d", 6767+GinkgoParallelNode())

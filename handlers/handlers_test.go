@@ -47,7 +47,7 @@ var _ = Describe("Handlers", func() {
 
 		buffer := bytes.NewBufferString("the file I'm uploading")
 		incomingRequest, err = http.NewRequest("POST", "", buffer)
-		Ω(err).ShouldNot(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 		incomingRequest.Header.Set("Content-MD5", "the-md5")
 
 		fakeCloudController = ghttp.NewServer()
@@ -56,7 +56,7 @@ var _ = Describe("Handlers", func() {
 		poller := ccclient.NewPoller(logger, http.DefaultClient, 100*time.Millisecond)
 
 		handler, err = handlers.New("", uploader, poller, logger)
-		Ω(err).ShouldNot(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 
 		postStatusCode = http.StatusCreated
 		uploadedBytes = nil
@@ -86,16 +86,16 @@ var _ = Describe("Handlers", func() {
 				func(w http.ResponseWriter, r *http.Request) {
 					uploadedHeaders = r.Header
 					file, fileHeader, err := r.FormFile(ccclient.FormField)
-					Ω(err).ShouldNot(HaveOccurred())
+					Expect(err).NotTo(HaveOccurred())
 					uploadedBytes, err = ioutil.ReadAll(file)
-					Ω(err).ShouldNot(HaveOccurred())
+					Expect(err).NotTo(HaveOccurred())
 					uploadedFileName = fileHeader.Filename
-					Ω(r.ContentLength).Should(BeNumerically(">", len(uploadedBytes)))
+					Expect(r.ContentLength).To(BeNumerically(">", len(uploadedBytes)))
 				},
 			))
 
 			uploadURL, err = url.Parse(fakeCloudController.URL())
-			Ω(err).ShouldNot(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 
 			uploadURL.User = url.UserPassword("bob", "password")
 			uploadURL.Path = "/staging/droplet/app-guid/upload"
@@ -104,7 +104,7 @@ var _ = Describe("Handlers", func() {
 
 		JustBeforeEach(func() {
 			u, err := url.Parse("http://file-server.com/v1/droplet/app-guid")
-			Ω(err).ShouldNot(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 
 			v := url.Values{models.CcDropletUploadUriKey: []string{uploadURL.String()}}
 			u.RawQuery = v.Encode()
@@ -129,16 +129,16 @@ var _ = Describe("Handlers", func() {
 			})
 
 			It("responds with 201 CREATED", func() {
-				Ω(outgoingResponse.Code).Should(Equal(http.StatusCreated))
+				Expect(outgoingResponse.Code).To(Equal(http.StatusCreated))
 			})
 
 			It("forwards the content-md5 header", func() {
-				Ω(uploadedHeaders.Get("Content-MD5")).Should(Equal("the-md5"))
+				Expect(uploadedHeaders.Get("Content-MD5")).To(Equal("the-md5"))
 			})
 
 			It("uploads the correct file", func() {
-				Ω(uploadedBytes).Should(Equal([]byte("the file I'm uploading")))
-				Ω(uploadedFileName).Should(Equal("droplet.tgz"))
+				Expect(uploadedBytes).To(Equal([]byte("the file I'm uploading")))
+				Expect(uploadedFileName).To(Equal("droplet.tgz"))
 			})
 
 			It("should wait between polls", func() {
@@ -147,8 +147,8 @@ var _ = Describe("Handlers", func() {
 				Eventually(timeClicker).Should(Receive(&secondTime))
 				Eventually(timeClicker).Should(Receive(&thirdTime))
 
-				Ω(secondTime.Sub(firstTime)).Should(BeNumerically(">", 75*time.Millisecond))
-				Ω(thirdTime.Sub(secondTime)).Should(BeNumerically(">", 75*time.Millisecond))
+				Expect(secondTime.Sub(firstTime)).To(BeNumerically(">", 75*time.Millisecond))
+				Expect(thirdTime.Sub(secondTime)).To(BeNumerically(">", 75*time.Millisecond))
 			})
 		})
 
@@ -163,9 +163,9 @@ var _ = Describe("Handlers", func() {
 			})
 
 			It("stops polling after the first fail", func() {
-				Ω(fakeCloudController.ReceivedRequests()).Should(HaveLen(3))
+				Expect(fakeCloudController.ReceivedRequests()).To(HaveLen(3))
 
-				Ω(outgoingResponse.Code).Should(Equal(http.StatusInternalServerError))
+				Expect(outgoingResponse.Code).To(Equal(http.StatusInternalServerError))
 			})
 		})
 
@@ -175,11 +175,11 @@ var _ = Describe("Handlers", func() {
 			})
 
 			It("does not make the request to CC", func() {
-				Ω(fakeCloudController.ReceivedRequests()).Should(HaveLen(0))
+				Expect(fakeCloudController.ReceivedRequests()).To(HaveLen(0))
 			})
 
 			It("responds with 411", func() {
-				Ω(outgoingResponse.Code).Should(Equal(http.StatusLengthRequired))
+				Expect(outgoingResponse.Code).To(Equal(http.StatusLengthRequired))
 			})
 		})
 
@@ -189,15 +189,15 @@ var _ = Describe("Handlers", func() {
 			})
 
 			It("makes the request to CC", func() {
-				Ω(fakeCloudController.ReceivedRequests()).Should(HaveLen(1))
+				Expect(fakeCloudController.ReceivedRequests()).To(HaveLen(1))
 			})
 
 			It("responds with the status code from the CC request", func() {
-				Ω(outgoingResponse.Code).Should(Equal(http.StatusForbidden))
+				Expect(outgoingResponse.Code).To(Equal(http.StatusForbidden))
 
 				data, err := ioutil.ReadAll(outgoingResponse.Body)
-				Ω(err).ShouldNot(HaveOccurred())
-				Ω(string(data)).Should(ContainSubstring(strconv.Itoa(http.StatusForbidden)))
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(data)).To(ContainSubstring(strconv.Itoa(http.StatusForbidden)))
 			})
 		})
 	})
@@ -213,16 +213,16 @@ var _ = Describe("Handlers", func() {
 				func(w http.ResponseWriter, r *http.Request) {
 					uploadedHeaders = r.Header
 					file, fileHeader, err := r.FormFile(ccclient.FormField)
-					Ω(err).ShouldNot(HaveOccurred())
+					Expect(err).NotTo(HaveOccurred())
 					uploadedBytes, err = ioutil.ReadAll(file)
-					Ω(err).ShouldNot(HaveOccurred())
+					Expect(err).NotTo(HaveOccurred())
 					uploadedFileName = fileHeader.Filename
-					Ω(r.ContentLength).Should(BeNumerically(">", len(uploadedBytes)))
+					Expect(r.ContentLength).To(BeNumerically(">", len(uploadedBytes)))
 				},
 			))
 
 			uploadURL, err = url.Parse(fakeCloudController.URL())
-			Ω(err).ShouldNot(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 
 			uploadURL.User = url.UserPassword("bob", "password")
 			uploadURL.Path = "/staging/buildpack_cache/app-guid/upload"
@@ -230,7 +230,7 @@ var _ = Describe("Handlers", func() {
 
 		JustBeforeEach(func() {
 			u, err := url.Parse("http://file-server.com/v1/build_artifacts/app-guid")
-			Ω(err).ShouldNot(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 			v := url.Values{models.CcBuildArtifactsUploadUriKey: []string{uploadURL.String()}}
 			u.RawQuery = v.Encode()
 			incomingRequest.URL = u
@@ -242,16 +242,16 @@ var _ = Describe("Handlers", func() {
 
 		Context("uploading the file, when all is well", func() {
 			It("responds with 200 OK", func() {
-				Ω(outgoingResponse.Code).Should(Equal(http.StatusOK))
+				Expect(outgoingResponse.Code).To(Equal(http.StatusOK))
 			})
 
 			It("uploads the correct file", func() {
-				Ω(uploadedBytes).Should(Equal([]byte("the file I'm uploading")))
-				Ω(uploadedFileName).Should(Equal("buildpack_cache.tgz"))
+				Expect(uploadedBytes).To(Equal([]byte("the file I'm uploading")))
+				Expect(uploadedFileName).To(Equal("buildpack_cache.tgz"))
 			})
 
 			It("forwards the content-md5 header", func() {
-				Ω(uploadedHeaders.Get("Content-MD5")).Should(Equal("the-md5"))
+				Expect(uploadedHeaders.Get("Content-MD5")).To(Equal("the-md5"))
 			})
 		})
 
@@ -261,11 +261,11 @@ var _ = Describe("Handlers", func() {
 			})
 
 			It("does not make the request to CC", func() {
-				Ω(fakeCloudController.ReceivedRequests()).Should(HaveLen(0))
+				Expect(fakeCloudController.ReceivedRequests()).To(HaveLen(0))
 			})
 
 			It("responds with 411", func() {
-				Ω(outgoingResponse.Code).Should(Equal(http.StatusLengthRequired))
+				Expect(outgoingResponse.Code).To(Equal(http.StatusLengthRequired))
 			})
 		})
 
@@ -275,15 +275,15 @@ var _ = Describe("Handlers", func() {
 			})
 
 			It("makes the request to CC", func() {
-				Ω(fakeCloudController.ReceivedRequests()).Should(HaveLen(1))
+				Expect(fakeCloudController.ReceivedRequests()).To(HaveLen(1))
 			})
 
 			It("responds with the status code from the CC request", func() {
-				Ω(outgoingResponse.Code).Should(Equal(http.StatusForbidden))
+				Expect(outgoingResponse.Code).To(Equal(http.StatusForbidden))
 
 				data, err := ioutil.ReadAll(outgoingResponse.Body)
-				Ω(err).ShouldNot(HaveOccurred())
-				Ω(string(data)).Should(ContainSubstring(strconv.Itoa(http.StatusForbidden)))
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(data)).To(ContainSubstring(strconv.Itoa(http.StatusForbidden)))
 			})
 		})
 	})

@@ -162,11 +162,11 @@ var _ = Describe("Poller", func() {
 					It("uses the metadata URL to make the request to the polling endpoint", func() {
 						var firstPollRequest *http.Request
 						Eventually(pollRequestChan).Should(Receive(&firstPollRequest))
-						Ω(firstPollRequest.URL.Host).Should(Equal("example.com"))
+						Expect(firstPollRequest.URL.Host).To(Equal("example.com"))
 
 						var secondPollRequest *http.Request
 						Eventually(pollRequestChan).Should(Receive(&secondPollRequest))
-						Ω(secondPollRequest.URL.Host).Should(Equal("polling-endpoint.com"))
+						Expect(secondPollRequest.URL.Host).To(Equal("polling-endpoint.com"))
 					})
 				})
 
@@ -189,11 +189,11 @@ var _ = Describe("Poller", func() {
 					It("appends the host and scheme from the given poll URL to the new path to perform the request to the polling endpoint", func() {
 						var firstPollRequest *http.Request
 						Eventually(pollRequestChan).Should(Receive(&firstPollRequest))
-						Ω(firstPollRequest.URL.Host).Should(Equal("fallback-url.com"))
+						Expect(firstPollRequest.URL.Host).To(Equal("fallback-url.com"))
 
 						var secondPollRequest *http.Request
 						Eventually(pollRequestChan).Should(Receive(&secondPollRequest))
-						Ω(secondPollRequest.URL.Host).Should(Equal("polling-endpoint.com"))
+						Expect(secondPollRequest.URL.Host).To(Equal("polling-endpoint.com"))
 					})
 				})
 
@@ -213,7 +213,7 @@ var _ = Describe("Poller", func() {
 					It("errors", func() {
 						var urlErr error
 						Eventually(pollErrChan).Should(Receive(&urlErr))
-						Ω(urlErr).Should(MatchError(ContainSubstring("something bad")))
+						Expect(urlErr).To(MatchError(ContainSubstring("something bad")))
 					})
 				})
 

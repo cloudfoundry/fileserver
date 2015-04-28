@@ -42,22 +42,22 @@ var _ = Describe("UploadBuildArtifacts", func() {
 			BeforeEach(func() {
 				var err error
 				incomingRequest, err = http.NewRequest("POST", "http://example.com", bytes.NewBufferString(""))
-				Ω(err).ShouldNot(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 
 				uploader = fake_ccclient.FakeUploader{}
 			})
 
 			It("responds with an error code", func() {
-				Ω(outgoingResponse.Code).Should(Equal(http.StatusBadRequest))
+				Expect(outgoingResponse.Code).To(Equal(http.StatusBadRequest))
 			})
 
 			It("does not attempt to upload", func() {
-				Ω(uploader.UploadCallCount()).Should(BeZero())
+				Expect(uploader.UploadCallCount()).To(BeZero())
 			})
 
 			It("responds with the error message in the body", func() {
 				body, _ := outgoingResponse.Body.ReadString('\n')
-				Ω(body).Should(Equal(upload_build_artifacts.MissingCCBuildArtifactsUploadUriKeyError.Error()))
+				Expect(body).To(Equal(upload_build_artifacts.MissingCCBuildArtifactsUploadUriKeyError.Error()))
 			})
 		})
 
@@ -69,19 +69,19 @@ var _ = Describe("UploadBuildArtifacts", func() {
 					fmt.Sprintf("http://example.com?%s=upload-uri.com", models.CcBuildArtifactsUploadUriKey),
 					bytes.NewBufferString(""),
 				)
-				Ω(err).ShouldNot(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 
 				uploader = fake_ccclient.FakeUploader{}
 				uploader.UploadReturns(nil, errors.New("some-error"))
 			})
 
 			It("responds with an error code", func() {
-				Ω(outgoingResponse.Code).Should(Equal(http.StatusInternalServerError))
+				Expect(outgoingResponse.Code).To(Equal(http.StatusInternalServerError))
 			})
 
 			It("responds with the error message in the body", func() {
 				body, _ := outgoingResponse.Body.ReadString('\n')
-				Ω(body).Should(Equal("some-error"))
+				Expect(body).To(Equal("some-error"))
 			})
 		})
 
@@ -93,19 +93,19 @@ var _ = Describe("UploadBuildArtifacts", func() {
 					fmt.Sprintf("http://example.com?%s=upload-uri.com", models.CcBuildArtifactsUploadUriKey),
 					bytes.NewBufferString(""),
 				)
-				Ω(err).ShouldNot(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 
 				uploader = fake_ccclient.FakeUploader{}
 				uploader.UploadReturns(&http.Response{StatusCode: 404}, errors.New("some-error"))
 			})
 
 			It("responds with an error code", func() {
-				Ω(outgoingResponse.Code).Should(Equal(404))
+				Expect(outgoingResponse.Code).To(Equal(404))
 			})
 
 			It("responds with the error message in the body", func() {
 				body, _ := outgoingResponse.Body.ReadString('\n')
-				Ω(body).Should(Equal("some-error"))
+				Expect(body).To(Equal("some-error"))
 			})
 		})
 
@@ -117,14 +117,14 @@ var _ = Describe("UploadBuildArtifacts", func() {
 					fmt.Sprintf("http://example.com?%s=upload-uri.com", models.CcBuildArtifactsUploadUriKey),
 					bytes.NewBufferString(""),
 				)
-				Ω(err).ShouldNot(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 
 				uploader = fake_ccclient.FakeUploader{}
 				uploader.UploadReturns(&http.Response{StatusCode: http.StatusOK}, nil)
 			})
 
 			It("responds with a status OK", func() {
-				Ω(outgoingResponse.Code).Should(Equal(http.StatusOK))
+				Expect(outgoingResponse.Code).To(Equal(http.StatusOK))
 			})
 		})
 
@@ -138,7 +138,7 @@ var _ = Describe("UploadBuildArtifacts", func() {
 					fmt.Sprintf("http://example.com?%s=upload-uri.com", models.CcBuildArtifactsUploadUriKey),
 					bytes.NewBufferString(""),
 				)
-				Ω(err).ShouldNot(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 
 				closedChan := make(chan bool)
 				fakeResponseWriter = test_helpers.NewFakeResponseWriter(closedChan)
@@ -153,7 +153,7 @@ var _ = Describe("UploadBuildArtifacts", func() {
 			})
 
 			It("responds with an error code", func() {
-				Ω(fakeResponseWriter.Code).Should(Equal(http.StatusInternalServerError))
+				Expect(fakeResponseWriter.Code).To(Equal(http.StatusInternalServerError))
 			})
 		})
 
@@ -165,7 +165,7 @@ var _ = Describe("UploadBuildArtifacts", func() {
 					fmt.Sprintf("http://example.com?%s=upload-uri.com&timeout=1", models.CcBuildArtifactsUploadUriKey),
 					bytes.NewBufferString(""),
 				)
-				Ω(err).ShouldNot(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 
 				uploader = fake_ccclient.FakeUploader{}
 				uploader.UploadStub = func(uploadURL *url.URL, filename string, r *http.Request, cancelChan <-chan struct{}) (*http.Response, error) {
@@ -175,7 +175,7 @@ var _ = Describe("UploadBuildArtifacts", func() {
 			})
 
 			It("responds with an error code", func() {
-				Ω(outgoingResponse.Code).Should(Equal(http.StatusInternalServerError))
+				Expect(outgoingResponse.Code).To(Equal(http.StatusInternalServerError))
 			})
 		})
 	})
