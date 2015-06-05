@@ -30,30 +30,34 @@ type dropletUploader struct {
 var MissingCCDropletUploadUriKeyError = errors.New(fmt.Sprintf("missing %s parameter", models.CcDropletUploadUriKey))
 
 func (h *dropletUploader) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	requestLogger := h.logger.Session("droplet.upload")
+	logger := h.logger.Session("droplet.upload")
 
+	logger.Info("extracting-droplet-upload-uri-key")
 	uploadUriParameter := r.URL.Query().Get(models.CcDropletUploadUriKey)
 	if uploadUriParameter == "" {
-		requestLogger.Error("failed", MissingCCDropletUploadUriKeyError)
+		logger.Error("failed-extracting-droplet-upload-uri-key", MissingCCDropletUploadUriKeyError)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(MissingCCDropletUploadUriKeyError.Error()))
 		return
 	}
+	logger.Info("succeeded-extracting-droplet-upload-uri-key")
 
+	logger.Info("parsing-upload-uri-parameter")
 	uploadUrl, err := url.Parse(uploadUriParameter)
 	if err != nil {
-		requestLogger.Error("failed: Invalid upload uri", err)
+		logger.Error("failed-parsing-upload-uri-parameter", err)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
 		return
 	}
+	logger.Info("succeeded-parsing-upload-uri-parameter")
 
 	timeout := 5 * time.Minute
 	timeoutParameter := r.URL.Query().Get(models.CcTimeoutKey)
 	if timeoutParameter != "" {
 		t, err := strconv.Atoi(timeoutParameter)
 		if err != nil {
-			requestLogger.Error("failed: Invalid timeout", err)
+			logger.Error("failed-converting-timeout-parameter", err)
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(err.Error()))
 			return
@@ -64,11 +68,6 @@ func (h *dropletUploader) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	query := uploadUrl.Query()
 	query.Set("async", "true")
 	uploadUrl.RawQuery = query.Encode()
-
-	requestLogger.Info("start", lager.Data{
-		"upload-url":     uploadUrl,
-		"content-length": r.ContentLength,
-	})
 
 	cancelChan := make(chan struct{})
 	var writerClosed <-chan bool
@@ -91,10 +90,12 @@ func (h *dropletUploader) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}()
 	defer close(done)
 
+	logger = logger.WithData(lager.Data{"upload-url": uploadUrl, "content-length": r.ContentLength})
+	logger.Info("uploading-droplet")
 	uploadStart := time.Now()
 	uploadResponse, err := h.uploader.Upload(uploadUrl, "droplet.tgz", r, cancelChan)
 	if err != nil {
-		requestLogger.Error("failed", err)
+		logger.Error("failed-uploading-droplet", err)
 		if uploadResponse == nil {
 			w.WriteHeader(http.StatusInternalServerError)
 		} else {
@@ -104,21 +105,22 @@ func (h *dropletUploader) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uploadEnd := time.Now()
+	logger.Info("succeeded-uploading-droplet", lager.Data{
+		"upload-duration": uploadEnd.Sub(uploadStart).String(),
+	})
 
+	logger.Info("polling-cc-background-upload")
 	err = h.poller.Poll(uploadUrl, uploadResponse, cancelChan)
 	if err != nil {
-		requestLogger.Error("failed", err)
+		logger.Error("failed-polling-cc-background-upload", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))
 		return
 	}
 	pollEnd := time.Now()
+	logger.Info("succeeded-polling-cc-background-upload", lager.Data{
+		"poll-duration": pollEnd.Sub(uploadEnd).String(),
+	})
 
 	w.WriteHeader(http.StatusCreated)
-	requestLogger.Info("success", lager.Data{
-		"upload-url":     uploadUrl,
-		"content-length": r.ContentLength,
-		"upload-time":    uploadEnd.Sub(uploadStart).String(),
-		"poll-time":      pollEnd.Sub(uploadEnd).String(),
-	})
 }

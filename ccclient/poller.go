@@ -35,27 +35,36 @@ func NewPoller(logger lager.Logger, httpClient *http.Client, pollInterval time.D
 func (p *poller) Poll(fallbackURL *url.URL, res *http.Response, cancelChan <-chan struct{}) error {
 	body, err := p.parsePollingResponse(res)
 	if err != nil {
+		p.logger.Error("failed-parsing-polling-response", err)
 		return err
 	}
 
 	ticker := time.NewTicker(p.pollInterval)
 	defer ticker.Stop()
 
-	for {
+	for i := 0; ; i++ {
+		p.logger.Info("checking-cc-job-status", lager.Data{"attempt-number": i, "status": body.Entity.Status})
+
 		switch body.Entity.Status {
 		case JOB_QUEUED, JOB_RUNNING:
 		case JOB_FINISHED:
+			p.logger.Info("cc-job-finished")
 			return nil
 		case JOB_FAILED:
-			return fmt.Errorf("upload job failed")
+			err := fmt.Errorf("upload job failed")
+			p.logger.Error("cc-job-failed", err)
+			return err
 		default:
-			return fmt.Errorf("unknown job status: %s", body.Entity.Status)
+			err := fmt.Errorf("unknown job status: %s", body.Entity.Status)
+			p.logger.Error("cc-job-unknown-status", err)
+			return err
 		}
 
 		select {
 		case <-ticker.C:
 			pollingUrl, err := url.Parse(body.Metadata.Url)
 			if err != nil {
+				p.logger.Error("failed-parsing-url", err, lager.Data{"url": body.Metadata.Url})
 				return err
 			}
 
@@ -66,6 +75,7 @@ func (p *poller) Poll(fallbackURL *url.URL, res *http.Response, cancelChan <-cha
 
 			req, err := http.NewRequest("GET", pollingUrl.String(), nil)
 			if err != nil {
+				p.logger.Error("failed-generating-request", err, lager.Data{"url": pollingUrl.String()})
 				return err
 			}
 
@@ -82,18 +92,24 @@ func (p *poller) Poll(fallbackURL *url.URL, res *http.Response, cancelChan <-cha
 				}
 			}()
 
+			p.logger.Info("making-request-to-polling-endpoint")
 			res, err := p.client.Do(req)
 			close(completion)
 			if err != nil {
+				p.logger.Error("failed-making-request-to-polling-endpoint", err)
 				return err
 			}
+			p.logger.Info("succeeded-making-request-to-polling-endpoint")
 
 			body, err = p.parsePollingResponse(res)
 			if err != nil {
+				p.logger.Error("failed-parsing-polling-response", err)
 				return err
 			}
 		case <-cancelChan:
-			return fmt.Errorf("upstream request was cancelled")
+			err := fmt.Errorf("upstream request was cancelled")
+			p.logger.Error("upstream-request-cancelled", err)
+			return err
 		}
 	}
 }

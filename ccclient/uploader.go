@@ -48,10 +48,14 @@ func (u *uploader) Upload(uploadURL *url.URL, filename string, r *http.Request, 
 	var rsp *http.Response
 	var uploadErr error
 	for attempt := 0; attempt < MAX_UPLOAD_RETRIES; attempt++ {
+		logger := u.logger.WithData(lager.Data{"attempt-number": attempt})
+		logger.Info("uploading")
 		rsp, uploadErr = u.do(uploadReq, cancelChan)
 		if uploadErr == nil {
+			logger.Info("succeeded-uploading")
 			break
 		}
+		logger.Error("failed-uploading", err)
 
 		// not a connect (dial) error
 		var nestedErr error = uploadErr
