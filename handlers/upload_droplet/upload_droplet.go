@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/cloudfoundry-incubator/file-server/ccclient"
-	"github.com/cloudfoundry-incubator/runtime-schema/models"
+	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/pivotal-golang/lager"
 )
 
@@ -27,13 +27,13 @@ type dropletUploader struct {
 	logger   lager.Logger
 }
 
-var MissingCCDropletUploadUriKeyError = errors.New(fmt.Sprintf("missing %s parameter", models.CcDropletUploadUriKey))
+var MissingCCDropletUploadUriKeyError = errors.New(fmt.Sprintf("missing %s parameter", cc_messages.CcDropletUploadUriKey))
 
 func (h *dropletUploader) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	logger := h.logger.Session("droplet.upload")
 
 	logger.Info("extracting-droplet-upload-uri-key")
-	uploadUriParameter := r.URL.Query().Get(models.CcDropletUploadUriKey)
+	uploadUriParameter := r.URL.Query().Get(cc_messages.CcDropletUploadUriKey)
 	if uploadUriParameter == "" {
 		logger.Error("failed-extracting-droplet-upload-uri-key", MissingCCDropletUploadUriKeyError)
 		w.WriteHeader(http.StatusBadRequest)
@@ -53,7 +53,7 @@ func (h *dropletUploader) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	logger.Info("succeeded-parsing-upload-uri-parameter")
 
 	timeout := 5 * time.Minute
-	timeoutParameter := r.URL.Query().Get(models.CcTimeoutKey)
+	timeoutParameter := r.URL.Query().Get(cc_messages.CcTimeoutKey)
 	if timeoutParameter != "" {
 		t, err := strconv.Atoi(timeoutParameter)
 		if err != nil {

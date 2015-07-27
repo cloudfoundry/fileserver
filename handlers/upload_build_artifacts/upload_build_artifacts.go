@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/cloudfoundry-incubator/file-server/ccclient"
-	"github.com/cloudfoundry-incubator/runtime-schema/models"
+	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/pivotal-golang/lager"
 )
 
@@ -25,12 +25,12 @@ type buildArtifactUploader struct {
 	logger   lager.Logger
 }
 
-var MissingCCBuildArtifactsUploadUriKeyError = errors.New(fmt.Sprintf("missing %s parameter", models.CcBuildArtifactsUploadUriKey))
+var MissingCCBuildArtifactsUploadUriKeyError = errors.New(fmt.Sprintf("missing %s parameter", cc_messages.CcBuildArtifactsUploadUriKey))
 
 func (h *buildArtifactUploader) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	requestLogger := h.logger.Session("build-artifacts.upload")
 
-	uploadUriParameter := r.URL.Query().Get(models.CcBuildArtifactsUploadUriKey)
+	uploadUriParameter := r.URL.Query().Get(cc_messages.CcBuildArtifactsUploadUriKey)
 	if uploadUriParameter == "" {
 		requestLogger.Error("failed", MissingCCBuildArtifactsUploadUriKeyError)
 		w.WriteHeader(http.StatusBadRequest)
@@ -47,7 +47,7 @@ func (h *buildArtifactUploader) ServeHTTP(w http.ResponseWriter, r *http.Request
 	}
 
 	timeout := 5 * time.Minute
-	timeoutParameter := r.URL.Query().Get(models.CcTimeoutKey)
+	timeoutParameter := r.URL.Query().Get(cc_messages.CcTimeoutKey)
 	if timeoutParameter != "" {
 		t, err := strconv.Atoi(timeoutParameter)
 		if err != nil {
