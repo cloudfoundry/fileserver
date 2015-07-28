@@ -12,7 +12,7 @@ import (
 
 	"github.com/cloudfoundry-incubator/file-server/ccclient"
 	"github.com/cloudfoundry-incubator/file-server/handlers"
-	"github.com/cloudfoundry-incubator/runtime-schema/models"
+	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry/gunk/urljoiner"
 	"github.com/pivotal-golang/lager/lagertest"
 
@@ -106,7 +106,7 @@ var _ = Describe("Handlers", func() {
 			u, err := url.Parse("http://file-server.com/v1/droplet/app-guid")
 			Expect(err).NotTo(HaveOccurred())
 
-			v := url.Values{models.CcDropletUploadUriKey: []string{uploadURL.String()}}
+			v := url.Values{cc_messages.CcDropletUploadUriKey: []string{uploadURL.String()}}
 			u.RawQuery = v.Encode()
 			incomingRequest.URL = u
 
@@ -231,7 +231,7 @@ var _ = Describe("Handlers", func() {
 		JustBeforeEach(func() {
 			u, err := url.Parse("http://file-server.com/v1/build_artifacts/app-guid")
 			Expect(err).NotTo(HaveOccurred())
-			v := url.Values{models.CcBuildArtifactsUploadUriKey: []string{uploadURL.String()}}
+			v := url.Values{cc_messages.CcBuildArtifactsUploadUriKey: []string{uploadURL.String()}}
 			u.RawQuery = v.Encode()
 			incomingRequest.URL = u
 

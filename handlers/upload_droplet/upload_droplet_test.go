@@ -12,7 +12,7 @@ import (
 	"github.com/cloudfoundry-incubator/file-server/ccclient/fake_ccclient"
 	"github.com/cloudfoundry-incubator/file-server/handlers/test_helpers"
 	"github.com/cloudfoundry-incubator/file-server/handlers/upload_droplet"
-	"github.com/cloudfoundry-incubator/runtime-schema/models"
+	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/pivotal-golang/lager"
@@ -67,7 +67,7 @@ var _ = Describe("UploadDroplet", func() {
 				var err error
 				incomingRequest, err = http.NewRequest(
 					"POST",
-					fmt.Sprintf("http://example.com?%s=upload-uri.com", models.CcDropletUploadUriKey),
+					fmt.Sprintf("http://example.com?%s=upload-uri.com", cc_messages.CcDropletUploadUriKey),
 					bytes.NewBufferString(""),
 				)
 				Expect(err).NotTo(HaveOccurred())
@@ -84,7 +84,7 @@ var _ = Describe("UploadDroplet", func() {
 				var err error
 				incomingRequest, err = http.NewRequest(
 					"POST",
-					fmt.Sprintf("http://example.com?%s=upload-uri.com", models.CcDropletUploadUriKey),
+					fmt.Sprintf("http://example.com?%s=upload-uri.com", cc_messages.CcDropletUploadUriKey),
 					bytes.NewBufferString(""),
 				)
 				Expect(err).NotTo(HaveOccurred())
@@ -107,7 +107,7 @@ var _ = Describe("UploadDroplet", func() {
 				var err error
 				incomingRequest, err = http.NewRequest(
 					"POST",
-					fmt.Sprintf("http://example.com?%s=upload-uri.com", models.CcDropletUploadUriKey),
+					fmt.Sprintf("http://example.com?%s=upload-uri.com", cc_messages.CcDropletUploadUriKey),
 					bytes.NewBufferString(""),
 				)
 				Expect(err).NotTo(HaveOccurred())
@@ -132,7 +132,7 @@ var _ = Describe("UploadDroplet", func() {
 				var err error
 				incomingRequest, err = http.NewRequest(
 					"POST",
-					fmt.Sprintf("http://example.com?%s=upload-uri.com", models.CcDropletUploadUriKey),
+					fmt.Sprintf("http://example.com?%s=upload-uri.com", cc_messages.CcDropletUploadUriKey),
 					bytes.NewBufferString(""),
 				)
 				Expect(err).NotTo(HaveOccurred())
@@ -182,7 +182,7 @@ var _ = Describe("UploadDroplet", func() {
 				var err error
 				incomingRequest, err = http.NewRequest(
 					"POST",
-					fmt.Sprintf("http://example.com?%s=upload-uri.com", models.CcDropletUploadUriKey),
+					fmt.Sprintf("http://example.com?%s=upload-uri.com", cc_messages.CcDropletUploadUriKey),
 					bytes.NewBufferString(""),
 				)
 				Expect(err).NotTo(HaveOccurred())
@@ -233,7 +233,7 @@ var _ = Describe("UploadDroplet", func() {
 				var err error
 				incomingRequest, err = http.NewRequest(
 					"POST",
-					fmt.Sprintf("http://example.com?%s=upload-uri.com&timeout=1", models.CcDropletUploadUriKey),
+					fmt.Sprintf("http://example.com?%s=upload-uri.com&timeout=1", cc_messages.CcDropletUploadUriKey),
 					bytes.NewBufferString(""),
 				)
 				Expect(err).NotTo(HaveOccurred())

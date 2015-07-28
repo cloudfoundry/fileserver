@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/cloudfoundry-incubator/runtime-schema/models"
+	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/routes"
 	"github.com/cloudfoundry/gunk/urljoiner"
 	. "github.com/onsi/ginkgo"
@@ -85,7 +85,7 @@ var _ = Describe("File server", func() {
 
 		u, err := url.Parse(urljoiner.Join(address, path))
 		Expect(err).NotTo(HaveOccurred())
-		v = url.Values{models.CcDropletUploadUriKey: []string{ccUrl.String()}}
+		v = url.Values{cc_messages.CcDropletUploadUriKey: []string{ccUrl.String()}}
 		u.RawQuery = v.Encode()
 
 		postRequest, err := http.NewRequest("POST", u.String(), body)

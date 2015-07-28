@@ -12,7 +12,7 @@ import (
 	"github.com/cloudfoundry-incubator/file-server/ccclient/fake_ccclient"
 	"github.com/cloudfoundry-incubator/file-server/handlers/test_helpers"
 	"github.com/cloudfoundry-incubator/file-server/handlers/upload_build_artifacts"
-	"github.com/cloudfoundry-incubator/runtime-schema/models"
+	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/pivotal-golang/lager"
@@ -66,7 +66,7 @@ var _ = Describe("UploadBuildArtifacts", func() {
 				var err error
 				incomingRequest, err = http.NewRequest(
 					"POST",
-					fmt.Sprintf("http://example.com?%s=upload-uri.com", models.CcBuildArtifactsUploadUriKey),
+					fmt.Sprintf("http://example.com?%s=upload-uri.com", cc_messages.CcBuildArtifactsUploadUriKey),
 					bytes.NewBufferString(""),
 				)
 				Expect(err).NotTo(HaveOccurred())
@@ -90,7 +90,7 @@ var _ = Describe("UploadBuildArtifacts", func() {
 				var err error
 				incomingRequest, err = http.NewRequest(
 					"POST",
-					fmt.Sprintf("http://example.com?%s=upload-uri.com", models.CcBuildArtifactsUploadUriKey),
+					fmt.Sprintf("http://example.com?%s=upload-uri.com", cc_messages.CcBuildArtifactsUploadUriKey),
 					bytes.NewBufferString(""),
 				)
 				Expect(err).NotTo(HaveOccurred())
@@ -114,7 +114,7 @@ var _ = Describe("UploadBuildArtifacts", func() {
 				var err error
 				incomingRequest, err = http.NewRequest(
 					"POST",
-					fmt.Sprintf("http://example.com?%s=upload-uri.com", models.CcBuildArtifactsUploadUriKey),
+					fmt.Sprintf("http://example.com?%s=upload-uri.com", cc_messages.CcBuildArtifactsUploadUriKey),
 					bytes.NewBufferString(""),
 				)
 				Expect(err).NotTo(HaveOccurred())
@@ -135,7 +135,7 @@ var _ = Describe("UploadBuildArtifacts", func() {
 				var err error
 				incomingRequest, err = http.NewRequest(
 					"POST",
-					fmt.Sprintf("http://example.com?%s=upload-uri.com", models.CcBuildArtifactsUploadUriKey),
+					fmt.Sprintf("http://example.com?%s=upload-uri.com", cc_messages.CcBuildArtifactsUploadUriKey),
 					bytes.NewBufferString(""),
 				)
 				Expect(err).NotTo(HaveOccurred())
@@ -162,7 +162,7 @@ var _ = Describe("UploadBuildArtifacts", func() {
 				var err error
 				incomingRequest, err = http.NewRequest(
 					"POST",
-					fmt.Sprintf("http://example.com?%s=upload-uri.com&timeout=1", models.CcBuildArtifactsUploadUriKey),
+					fmt.Sprintf("http://example.com?%s=upload-uri.com&timeout=1", cc_messages.CcBuildArtifactsUploadUriKey),
 					bytes.NewBufferString(""),
 				)
 				Expect(err).NotTo(HaveOccurred())
