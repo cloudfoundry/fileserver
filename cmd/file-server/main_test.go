@@ -5,15 +5,11 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"time"
 
-	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
-	"github.com/cloudfoundry-incubator/runtime-schema/routes"
-	"github.com/cloudfoundry/gunk/urljoiner"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/config"
 	. "github.com/onsi/gomega"
@@ -50,7 +46,6 @@ var _ = Describe("File server", func() {
 		servedDirectory string
 		session         *gexec.Session
 		err             error
-		appGuid         = "app-guid"
 	)
 
 	start := func(extras ...string) *gexec.Session {
@@ -67,33 +62,6 @@ var _ = Describe("File server", func() {
 		Eventually(session).Should(gbytes.Say("file-server.ready"))
 
 		return session
-	}
-
-	dropletUploadRequest := func(appGuid string, body io.Reader, contentLength int) *http.Request {
-		ccUrl, err := url.Parse(fakeCC.Address())
-		Expect(err).NotTo(HaveOccurred())
-		ccUrl.User = url.UserPassword(fakeCC.Username(), fakeCC.Password())
-		ccUrl.Path = urljoiner.Join("staging", "droplets", appGuid, "upload")
-		v := url.Values{"async": []string{"true"}}
-		ccUrl.RawQuery = v.Encode()
-
-		route, ok := routes.FileServerRoutes.FindRouteByName(routes.FS_UPLOAD_DROPLET)
-		Expect(ok).To(BeTrue())
-
-		path, err := route.CreatePath(map[string]string{"guid": appGuid})
-		Expect(err).NotTo(HaveOccurred())
-
-		u, err := url.Parse(urljoiner.Join(address, path))
-		Expect(err).NotTo(HaveOccurred())
-		v = url.Values{cc_messages.CcDropletUploadUriKey: []string{ccUrl.String()}}
-		u.RawQuery = v.Encode()
-
-		postRequest, err := http.NewRequest("POST", u.String(), body)
-		Expect(err).NotTo(HaveOccurred())
-		postRequest.ContentLength = int64(contentLength)
-		postRequest.Header.Set("Content-Type", "application/octet-stream")
-
-		return postRequest
 	}
 
 	BeforeEach(func() {
@@ -132,25 +100,6 @@ var _ = Describe("File server", func() {
 			body, err := ioutil.ReadAll(resp.Body)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(body)).To(Equal("hello"))
-		})
-	})
-
-	Describe("uploading a file", func() {
-		var contentLength = 100
-
-		BeforeEach(func() {
-			session = start()
-		})
-
-		It("should upload the file...", func() {
-			emitter := NewEmitter(contentLength)
-			postRequest := dropletUploadRequest(appGuid, emitter, contentLength)
-			resp, err := http.DefaultClient.Do(postRequest)
-			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
-
-			Expect(resp.StatusCode).To(Equal(http.StatusCreated))
-			Expect(len(fakeCC.UploadedDroplets[appGuid])).To(Equal(contentLength))
 		})
 	})
 })

@@ -12,7 +12,6 @@ import (
 	"github.com/cloudfoundry-incubator/cf-debug-server"
 	"github.com/cloudfoundry-incubator/cf-lager"
 	"github.com/cloudfoundry-incubator/cf_http"
-	"github.com/cloudfoundry-incubator/file-server/ccclient"
 	"github.com/cloudfoundry-incubator/file-server/handlers"
 	"github.com/cloudfoundry/dropsonde"
 	"github.com/pivotal-golang/lager"
@@ -38,12 +37,6 @@ var skipCertVerify = flag.Bool(
 	"skipCertVerify",
 	false,
 	"Skip SSL certificate verification",
-)
-
-var ccJobPollingInterval = flag.Duration(
-	"ccJobPollingInterval",
-	1*time.Second,
-	"the interval between job polling requests",
 )
 
 var communicationTimeout = flag.Duration(
@@ -123,10 +116,7 @@ func initializeServer(logger lager.Logger) ifrit.Runner {
 	pollerHttpClient := cf_http.NewClient()
 	pollerHttpClient.Transport = transport
 
-	uploader := ccclient.NewUploader(logger, &http.Client{Transport: transport})
-	poller := ccclient.NewPoller(logger, pollerHttpClient, *ccJobPollingInterval)
-
-	fileServerHandler, err := handlers.New(*staticDirectory, uploader, poller, logger)
+	fileServerHandler, err := handlers.New(*staticDirectory, logger)
 	if err != nil {
 		logger.Error("router-building-failed", err)
 		os.Exit(1)
