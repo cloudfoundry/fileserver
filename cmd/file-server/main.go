@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -39,6 +40,12 @@ var skipCertVerify = flag.Bool(
 	"Skip SSL certificate verification",
 )
 
+var dropsondePort = flag.Int(
+	"dropsondePort",
+	3457,
+	"port the local metron agent is listening on",
+)
+
 var communicationTimeout = flag.Duration(
 	"communicationTimeout",
 	30*time.Second,
@@ -49,7 +56,6 @@ const (
 	ccUploadDialTimeout         = 10 * time.Second
 	ccUploadKeepAlive           = 30 * time.Second
 	ccUploadTLSHandshakeTimeout = 10 * time.Second
-	dropsondeDestination        = "localhost:3457"
 	dropsondeOrigin             = "file_server"
 )
 
@@ -90,6 +96,7 @@ func main() {
 }
 
 func initializeDropsonde(logger lager.Logger) {
+	dropsondeDestination := fmt.Sprint("localhost:", *dropsondePort)
 	err := dropsonde.Initialize(dropsondeDestination, dropsondeOrigin)
 	if err != nil {
 		logger.Error("failed to initialize dropsonde: %v", err)
