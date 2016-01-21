@@ -13,8 +13,12 @@ import (
 	"github.com/cloudfoundry-incubator/cf-debug-server"
 	"github.com/cloudfoundry-incubator/cf-lager"
 	"github.com/cloudfoundry-incubator/cf_http"
+	"github.com/cloudfoundry-incubator/consuladapter"
 	"github.com/cloudfoundry-incubator/file-server/handlers"
+	"github.com/cloudfoundry-incubator/locket"
 	"github.com/cloudfoundry/dropsonde"
+	"github.com/hashicorp/consul/api"
+	"github.com/pivotal-golang/clock"
 	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
@@ -52,6 +56,12 @@ var communicationTimeout = flag.Duration(
 	"Timeout applied to all HTTP requests.",
 )
 
+var consulCluster = flag.String(
+	"consulCluster",
+	"",
+	"Consul Agent URL",
+)
+
 const (
 	ccUploadDialTimeout         = 10 * time.Second
 	ccUploadKeepAlive           = 30 * time.Second
@@ -70,9 +80,16 @@ func main() {
 	logger, reconfigurableSink := cf_lager.New("file-server")
 
 	initializeDropsonde(logger)
+	consulClient, err := consuladapter.NewClient(*consulCluster)
+	if err != nil {
+		logger.Fatal("new-client-failed", err)
+	}
+
+	registrationRunner := initializeRegistrationRunner(logger, consulClient, *serverAddress, clock.NewClock())
 
 	members := grouper.Members{
 		{"file server", initializeServer(logger)},
+		{"registration-runner", registrationRunner},
 	}
 
 	if dbgAddr := cf_debug_server.DebugAddress(flag.CommandLine); dbgAddr != "" {
@@ -86,7 +103,7 @@ func main() {
 	monitor := ifrit.Invoke(sigmon.New(group))
 	logger.Info("ready")
 
-	err := <-monitor.Wait()
+	err = <-monitor.Wait()
 	if err != nil {
 		logger.Error("exited-with-failure", err)
 		os.Exit(1)
@@ -130,4 +147,25 @@ func initializeServer(logger lager.Logger) ifrit.Runner {
 	}
 
 	return http_server.New(*serverAddress, fileServerHandler)
+}
+
+func initializeRegistrationRunner(logger lager.Logger, consulClient *api.Client, listenAddress string, clock clock.Clock) ifrit.Runner {
+	_, portString, err := net.SplitHostPort(listenAddress)
+	if err != nil {
+		logger.Fatal("failed-invalid-listen-address", err)
+	}
+	portNum, err := net.LookupPort("tcp", portString)
+	if err != nil {
+		logger.Fatal("failed-invalid-listen-port", err)
+	}
+
+	registration := &api.AgentServiceRegistration{
+		Name: "file-server",
+		Port: portNum,
+		Check: &api.AgentServiceCheck{
+			TTL: "3s",
+		},
+	}
+
+	return locket.NewRegistrationRunner(logger, registration, consuladapter.NewConsulClient(consulClient), locket.RetryInterval, clock)
 }

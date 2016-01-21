@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/hashicorp/consul/api"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/config"
 	. "github.com/onsi/gomega"
@@ -52,6 +53,7 @@ var _ = Describe("File server", func() {
 		args := append(
 			extras,
 			"-staticDirectory", servedDirectory,
+			"-consulCluster", consulRunner.URL(),
 			"-address", fmt.Sprintf("localhost:%d", port),
 			"-skipCertVerify",
 		)
@@ -100,6 +102,31 @@ var _ = Describe("File server", func() {
 			body, err := ioutil.ReadAll(resp.Body)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(body)).To(Equal("hello"))
+		})
+
+		It("registers itself with consul", func() {
+			services, err := consulRunner.NewConsulClient().Agent().Services()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(services).Should(HaveKeyWithValue("file-server",
+				&api.AgentService{
+					Service: "file-server",
+					ID:      "file-server",
+					Port:    port,
+				}))
+		})
+
+		It("registers a TTL healthcheck", func() {
+			checks, err := consulRunner.NewConsulClient().Agent().Checks()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(checks).Should(HaveKeyWithValue("service:file-server",
+				&api.AgentCheck{
+					Node:        "0",
+					CheckID:     "service:file-server",
+					Name:        "Service 'file-server' check",
+					Status:      "passing",
+					ServiceID:   "file-server",
+					ServiceName: "file-server",
+				}))
 		})
 	})
 })
