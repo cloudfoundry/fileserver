@@ -105,7 +105,7 @@ var _ = Describe("File server", func() {
 		})
 
 		It("registers itself with consul", func() {
-			services, err := consulRunner.NewConsulClient().Agent().Services()
+			services, err := consulRunner.NewClient().Agent().Services()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(services).Should(HaveKeyWithValue("file-server",
 				&api.AgentService{
@@ -116,7 +116,7 @@ var _ = Describe("File server", func() {
 		})
 
 		It("registers a TTL healthcheck", func() {
-			checks, err := consulRunner.NewConsulClient().Agent().Checks()
+			checks, err := consulRunner.NewClient().Agent().Checks()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(checks).Should(HaveKeyWithValue("service:file-server",
 				&api.AgentCheck{

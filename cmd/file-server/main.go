@@ -80,7 +80,7 @@ func main() {
 	logger, reconfigurableSink := cf_lager.New("file-server")
 
 	initializeDropsonde(logger)
-	consulClient, err := consuladapter.NewClient(*consulCluster)
+	consulClient, err := consuladapter.NewClientFromUrl(*consulCluster)
 	if err != nil {
 		logger.Fatal("new-client-failed", err)
 	}
@@ -149,7 +149,7 @@ func initializeServer(logger lager.Logger) ifrit.Runner {
 	return http_server.New(*serverAddress, fileServerHandler)
 }
 
-func initializeRegistrationRunner(logger lager.Logger, consulClient *api.Client, listenAddress string, clock clock.Clock) ifrit.Runner {
+func initializeRegistrationRunner(logger lager.Logger, consulClient consuladapter.Client, listenAddress string, clock clock.Clock) ifrit.Runner {
 	_, portString, err := net.SplitHostPort(listenAddress)
 	if err != nil {
 		logger.Fatal("failed-invalid-listen-address", err)
@@ -167,5 +167,5 @@ func initializeRegistrationRunner(logger lager.Logger, consulClient *api.Client,
 		},
 	}
 
-	return locket.NewRegistrationRunner(logger, registration, consuladapter.NewConsulClient(consulClient), locket.RetryInterval, clock)
+	return locket.NewRegistrationRunner(logger, registration, consulClient, locket.RetryInterval, clock)
 }
