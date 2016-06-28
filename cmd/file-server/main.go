@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/consuladapter"
+	"code.cloudfoundry.org/locket"
 	"github.com/cloudfoundry-incubator/cf-debug-server"
 	"github.com/cloudfoundry-incubator/cf-lager"
 	"github.com/cloudfoundry-incubator/cf_http"
 	"github.com/cloudfoundry-incubator/file-server/handlers"
-	"github.com/cloudfoundry-incubator/locket"
 	"github.com/cloudfoundry/dropsonde"
 	"github.com/hashicorp/consul/api"
 	"github.com/pivotal-golang/clock"
