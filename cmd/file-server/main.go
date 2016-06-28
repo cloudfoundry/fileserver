@@ -10,11 +10,11 @@ import (
 	"runtime"
 	"time"
 
+	"code.cloudfoundry.org/cfhttp"
 	"code.cloudfoundry.org/cflager"
 	"code.cloudfoundry.org/consuladapter"
 	"code.cloudfoundry.org/debugserver"
 	"code.cloudfoundry.org/locket"
-	"github.com/cloudfoundry-incubator/cf_http"
 	"github.com/cloudfoundry-incubator/file-server/handlers"
 	"github.com/cloudfoundry/dropsonde"
 	"github.com/hashicorp/consul/api"
@@ -75,7 +75,7 @@ func main() {
 	cflager.AddFlags(flag.CommandLine)
 	flag.Parse()
 
-	cf_http.Initialize(*communicationTimeout)
+	cfhttp.Initialize(*communicationTimeout)
 
 	logger, reconfigurableSink := cflager.New("file-server")
 
@@ -137,7 +137,7 @@ func initializeServer(logger lager.Logger) ifrit.Runner {
 		TLSHandshakeTimeout: ccUploadTLSHandshakeTimeout,
 	}
 
-	pollerHttpClient := cf_http.NewClient()
+	pollerHttpClient := cfhttp.NewClient()
 	pollerHttpClient.Transport = transport
 
 	fileServerHandler, err := handlers.New(*staticDirectory, logger)
