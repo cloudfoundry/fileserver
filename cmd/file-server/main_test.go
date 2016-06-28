@@ -43,7 +43,6 @@ func (emitter *ByteEmitter) Read(p []byte) (n int, err error) {
 var _ = Describe("File server", func() {
 	var (
 		port            int
-		address         string
 		servedDirectory string
 		session         *gexec.Session
 		err             error
@@ -70,7 +69,6 @@ var _ = Describe("File server", func() {
 		servedDirectory, err = ioutil.TempDir("", "file_server-test")
 		Expect(err).NotTo(HaveOccurred())
 		port = 8182 + config.GinkgoConfig.ParallelNode
-		address = fmt.Sprintf("http://localhost:%d", port)
 	})
 
 	AfterEach(func() {
