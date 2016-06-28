@@ -3,8 +3,8 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/cloudfoundry-incubator/file-server"
-	"github.com/cloudfoundry-incubator/file-server/handlers/static"
+	"code.cloudfoundry.org/fileserver"
+	"code.cloudfoundry.org/fileserver/handlers/static"
 	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/rata"
 )
