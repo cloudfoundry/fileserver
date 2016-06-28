@@ -1,6 +1,8 @@
 File Server
 ===========
 
+**Note**: This repository should be imported as `code.cloudfoundry.org/fileserver`.
+
 Bob Loblaw's Blob Store
 
 ## Uploading Droplets & Build Artifacts
