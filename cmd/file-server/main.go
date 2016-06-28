@@ -10,10 +10,10 @@ import (
 	"runtime"
 	"time"
 
+	"code.cloudfoundry.org/cflager"
 	"code.cloudfoundry.org/consuladapter"
 	"code.cloudfoundry.org/debugserver"
 	"code.cloudfoundry.org/locket"
-	"github.com/cloudfoundry-incubator/cf-lager"
 	"github.com/cloudfoundry-incubator/cf_http"
 	"github.com/cloudfoundry-incubator/file-server/handlers"
 	"github.com/cloudfoundry/dropsonde"
@@ -72,12 +72,12 @@ const (
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	debugserver.AddFlags(flag.CommandLine)
-	cf_lager.AddFlags(flag.CommandLine)
+	cflager.AddFlags(flag.CommandLine)
 	flag.Parse()
 
 	cf_http.Initialize(*communicationTimeout)
 
-	logger, reconfigurableSink := cf_lager.New("file-server")
+	logger, reconfigurableSink := cflager.New("file-server")
 
 	initializeDropsonde(logger)
 	consulClient, err := consuladapter.NewClientFromUrl(*consulCluster)
