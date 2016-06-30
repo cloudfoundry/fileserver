@@ -3,7 +3,7 @@ package static
 import (
 	"net/http"
 
-	"github.com/pivotal-golang/lager"
+	"code.cloudfoundry.org/lager"
 )
 
 func New(dir, pathPrefix string, logger lager.Logger) http.Handler {

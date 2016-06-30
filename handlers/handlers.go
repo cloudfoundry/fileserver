@@ -5,7 +5,7 @@ import (
 
 	"code.cloudfoundry.org/fileserver"
 	"code.cloudfoundry.org/fileserver/handlers/static"
-	"github.com/pivotal-golang/lager"
+	"code.cloudfoundry.org/lager"
 	"github.com/tedsuo/rata"
 )
 
