@@ -54,7 +54,6 @@ var _ = Describe("File server", func() {
 			"-staticDirectory", servedDirectory,
 			"-consulCluster", consulRunner.URL(),
 			"-address", fmt.Sprintf("localhost:%d", port),
-			"-skipCertVerify",
 		)
 
 		session, err = gexec.Start(exec.Command(fileServerBinary, args...), GinkgoWriter, GinkgoWriter)

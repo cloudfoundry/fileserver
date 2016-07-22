@@ -1,11 +1,9 @@
 package main
 
 import (
-	"crypto/tls"
 	"flag"
 	"fmt"
 	"net"
-	"net/http"
 	"os"
 	"runtime"
 	"time"
@@ -38,12 +36,6 @@ var staticDirectory = flag.String(
 	"Specifies the directory to serve local static files from",
 )
 
-var skipCertVerify = flag.Bool(
-	"skipCertVerify",
-	false,
-	"Skip SSL certificate verification",
-)
-
 var dropsondePort = flag.Int(
 	"dropsondePort",
 	3457,
@@ -63,10 +55,7 @@ var consulCluster = flag.String(
 )
 
 const (
-	ccUploadDialTimeout         = 10 * time.Second
-	ccUploadKeepAlive           = 30 * time.Second
-	ccUploadTLSHandshakeTimeout = 10 * time.Second
-	dropsondeOrigin             = "file_server"
+	dropsondeOrigin = "file_server"
 )
 
 func main() {
@@ -124,21 +113,6 @@ func initializeServer(logger lager.Logger) ifrit.Runner {
 	if *staticDirectory == "" {
 		logger.Fatal("static-directory-missing", nil)
 	}
-
-	transport := &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
-		Dial: (&net.Dialer{
-			Timeout:   ccUploadDialTimeout,
-			KeepAlive: ccUploadKeepAlive,
-		}).Dial,
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: *skipCertVerify,
-		},
-		TLSHandshakeTimeout: ccUploadTLSHandshakeTimeout,
-	}
-
-	pollerHttpClient := cfhttp.NewClient()
-	pollerHttpClient.Transport = transport
 
 	fileServerHandler, err := handlers.New(*staticDirectory, logger)
 	if err != nil {
