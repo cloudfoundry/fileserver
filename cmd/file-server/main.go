@@ -54,6 +54,12 @@ var consulCluster = flag.String(
 	"Consul Agent URL",
 )
 
+var consulTTL = flag.String(
+	"consulTTL",
+	"3",
+	"TTL value for consul registration in seconds",
+)
+
 const (
 	dropsondeOrigin = "file_server"
 )
@@ -137,7 +143,7 @@ func initializeRegistrationRunner(logger lager.Logger, consulClient consuladapte
 		Name: "file-server",
 		Port: portNum,
 		Check: &api.AgentServiceCheck{
-			TTL: "3s",
+			TTL: *consulTTL + "s",
 		},
 	}
 
