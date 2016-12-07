@@ -137,7 +137,7 @@ func initializeRegistrationRunner(logger lager.Logger, consulClient consuladapte
 		Name: "file-server",
 		Port: portNum,
 		Check: &api.AgentServiceCheck{
-			TTL: "3s",
+			TTL: "20s",
 		},
 	}
 
