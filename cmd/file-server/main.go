@@ -6,15 +6,14 @@ import (
 	"net"
 	"os"
 	"runtime"
-	"time"
 
-	"code.cloudfoundry.org/cfhttp"
-	"code.cloudfoundry.org/cflager"
 	"code.cloudfoundry.org/clock"
 	"code.cloudfoundry.org/consuladapter"
 	"code.cloudfoundry.org/debugserver"
+	"code.cloudfoundry.org/fileserver/cmd/file-server/config"
 	"code.cloudfoundry.org/fileserver/handlers"
 	"code.cloudfoundry.org/lager"
+	"code.cloudfoundry.org/lager/lagerflags"
 	"code.cloudfoundry.org/locket"
 	"github.com/cloudfoundry/dropsonde"
 	"github.com/hashicorp/consul/api"
@@ -24,34 +23,10 @@ import (
 	"github.com/tedsuo/ifrit/sigmon"
 )
 
-var serverAddress = flag.String(
-	"address",
-	"0.0.0.0:8080",
-	"Specifies the address to bind to",
-)
-
-var staticDirectory = flag.String(
-	"staticDirectory",
+var configFilePath = flag.String(
+	"config",
 	"",
-	"Specifies the directory to serve local static files from",
-)
-
-var dropsondePort = flag.Int(
-	"dropsondePort",
-	3457,
-	"port the local metron agent is listening on",
-)
-
-var communicationTimeout = flag.Duration(
-	"communicationTimeout",
-	30*time.Second,
-	"Timeout applied to all HTTP requests.",
-)
-
-var consulCluster = flag.String(
-	"consulCluster",
-	"",
-	"Consul Agent URL",
+	"The path to the JSON configuration file.",
 )
 
 const (
@@ -60,24 +35,25 @@ const (
 
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
-	debugserver.AddFlags(flag.CommandLine)
-	cflager.AddFlags(flag.CommandLine)
 	flag.Parse()
+	cfg, err := config.NewFileServerConfig(*configFilePath)
+	if err != nil {
+		logger, _ := lagerflags.NewFromConfig("file-server", lagerflags.DefaultLagerConfig())
+		logger.Fatal("failed-to-parse-config", err)
+	}
 
-	cfhttp.Initialize(*communicationTimeout)
+	logger, reconfigurableSink := lagerflags.NewFromConfig("file-server", cfg.LagerConfig)
 
-	logger, reconfigurableSink := cflager.New("file-server")
-
-	initializeDropsonde(logger)
-	consulClient, err := consuladapter.NewClientFromUrl(*consulCluster)
+	initializeDropsonde(logger, cfg.DropsondePort)
+	consulClient, err := consuladapter.NewClientFromUrl(cfg.ConsulCluster)
 	if err != nil {
 		logger.Fatal("new-client-failed", err)
 	}
 
-	registrationRunner := initializeRegistrationRunner(logger, consulClient, *serverAddress, clock.NewClock())
+	registrationRunner := initializeRegistrationRunner(logger, consulClient, cfg.ServerAddress, clock.NewClock())
 
 	members := grouper.Members{
-		{"file server", initializeServer(logger)},
+		{"file server", initializeServer(logger, cfg.StaticDirectory, cfg.ServerAddress)},
 		{"registration-runner", registrationRunner},
 	}
 
@@ -101,26 +77,26 @@ func main() {
 	logger.Info("exited")
 }
 
-func initializeDropsonde(logger lager.Logger) {
-	dropsondeDestination := fmt.Sprint("localhost:", *dropsondePort)
+func initializeDropsonde(logger lager.Logger, dropsondePort int) {
+	dropsondeDestination := fmt.Sprint("localhost:", dropsondePort)
 	err := dropsonde.Initialize(dropsondeDestination, dropsondeOrigin)
 	if err != nil {
 		logger.Error("failed to initialize dropsonde: %v", err)
 	}
 }
 
-func initializeServer(logger lager.Logger) ifrit.Runner {
-	if *staticDirectory == "" {
+func initializeServer(logger lager.Logger, staticDirectory, serverAddress string) ifrit.Runner {
+	if staticDirectory == "" {
 		logger.Fatal("static-directory-missing", nil)
 	}
 
-	fileServerHandler, err := handlers.New(*staticDirectory, logger)
+	fileServerHandler, err := handlers.New(staticDirectory, logger)
 	if err != nil {
 		logger.Error("router-building-failed", err)
 		os.Exit(1)
 	}
 
-	return http_server.New(*serverAddress, fileServerHandler)
+	return http_server.New(serverAddress, fileServerHandler)
 }
 
 func initializeRegistrationRunner(logger lager.Logger, consulClient consuladapter.Client, listenAddress string, clock clock.Clock) ifrit.Runner {

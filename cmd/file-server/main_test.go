@@ -1,6 +1,7 @@
 package main_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -10,9 +11,10 @@ import (
 	"path/filepath"
 	"time"
 
+	"code.cloudfoundry.org/fileserver/cmd/file-server/config"
+
 	"github.com/hashicorp/consul/api"
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/config"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
@@ -46,16 +48,11 @@ var _ = Describe("File server", func() {
 		servedDirectory string
 		session         *gexec.Session
 		err             error
+		configPath      string
 	)
 
 	start := func(extras ...string) *gexec.Session {
-		args := append(
-			extras,
-			"-staticDirectory", servedDirectory,
-			"-consulCluster", consulRunner.URL(),
-			"-address", fmt.Sprintf("localhost:%d", port),
-		)
-
+		args := []string{"-config", configPath}
 		session, err = gexec.Start(exec.Command(fileServerBinary, args...), GinkgoWriter, GinkgoWriter)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -67,12 +64,27 @@ var _ = Describe("File server", func() {
 	BeforeEach(func() {
 		servedDirectory, err = ioutil.TempDir("", "file_server-test")
 		Expect(err).NotTo(HaveOccurred())
-		port = 8182 + config.GinkgoConfig.ParallelNode
+
+		configFile, err := ioutil.TempFile("", "file_server-test-config")
+		Expect(err).NotTo(HaveOccurred())
+		configPath = configFile.Name()
+
+		port = 8182 + GinkgoParallelNode()
+		cfg := config.FileServerConfig{
+			StaticDirectory: servedDirectory,
+			ConsulCluster:   consulRunner.URL(),
+			ServerAddress:   fmt.Sprintf("localhost:%d", port),
+		}
+
+		encoder := json.NewEncoder(configFile)
+		err = encoder.Encode(&cfg)
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	AfterEach(func() {
 		session.Kill().Wait()
 		os.RemoveAll(servedDirectory)
+		os.RemoveAll(configPath)
 	})
 
 	Context("when started without any arguments", func() {
@@ -80,6 +92,7 @@ var _ = Describe("File server", func() {
 			session, err = gexec.Start(exec.Command(fileServerBinary), GinkgoWriter, GinkgoWriter)
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(session).Should(gexec.Exit(2))
+			Eventually(session.Out).Should(gbytes.Say("failed-to-parse-config"))
 		})
 	})
 
