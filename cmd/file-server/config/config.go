@@ -34,6 +34,8 @@ func NewFileServerConfig(configPath string) (FileServerConfig, error) {
 		return FileServerConfig{}, err
 	}
 
+	defer configFile.Close()
+
 	decoder := json.NewDecoder(configFile)
 	err = decoder.Decode(&fileServerConfig)
 	if err != nil {
