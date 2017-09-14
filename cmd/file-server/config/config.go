@@ -9,11 +9,11 @@ import (
 )
 
 type FileServerConfig struct {
-	ServerAddress   string `json:"server_address,omitempty"`
-	StaticDirectory string `json:"static_directory,omitempty"`
-	DropsondePort   int    `json:"dropsonde_port,omitempty"`
-	ConsulCluster   string `json:"consul_cluster,omitempty"`
-
+	ServerAddress                   string `json:"server_address,omitempty"`
+	StaticDirectory                 string `json:"static_directory,omitempty"`
+	DropsondePort                   int    `json:"dropsonde_port,omitempty"`
+	ConsulCluster                   string `json:"consul_cluster,omitempty"`
+	EnableConsulServiceRegistration bool   `json:"enable_consul_service_registration,omitempty"`
 	debugserver.DebugServerConfig
 	lagerflags.LagerConfig
 }

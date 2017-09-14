@@ -50,11 +50,13 @@ func main() {
 		logger.Fatal("new-client-failed", err)
 	}
 
-	registrationRunner := initializeRegistrationRunner(logger, consulClient, cfg.ServerAddress, clock.NewClock())
-
 	members := grouper.Members{
 		{"file server", initializeServer(logger, cfg.StaticDirectory, cfg.ServerAddress)},
-		{"registration-runner", registrationRunner},
+	}
+
+	if cfg.EnableConsulServiceRegistration {
+		registrationRunner := initializeRegistrationRunner(logger, consulClient, cfg.ServerAddress, clock.NewClock())
+		members = append(members, grouper.Member{"registration-runner", registrationRunner})
 	}
 
 	if dbgAddr := debugserver.DebugAddress(flag.CommandLine); dbgAddr != "" {

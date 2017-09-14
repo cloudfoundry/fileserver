@@ -22,6 +22,7 @@ var _ = Describe("Config", func() {
 			"dropsonde_port": 12345,
 			"consul_cluster": "consul.example.com",
 			"debug_address": "127.0.0.1:17017",
+			"enable_consul_service_registration": true,
 			"log_level": "debug"
 		}`
 	})
@@ -54,6 +55,7 @@ var _ = Describe("Config", func() {
 			DebugServerConfig: debugserver.DebugServerConfig{
 				DebugAddress: "127.0.0.1:17017",
 			},
+			EnableConsulServiceRegistration: true,
 			LagerConfig: lagerflags.LagerConfig{
 				LogLevel: "debug",
 			},

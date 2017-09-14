@@ -49,6 +49,7 @@ var _ = Describe("File server", func() {
 		session         *gexec.Session
 		err             error
 		configPath      string
+		cfg             config.FileServerConfig
 	)
 
 	start := func(extras ...string) *gexec.Session {
@@ -60,26 +61,6 @@ var _ = Describe("File server", func() {
 
 		return session
 	}
-
-	BeforeEach(func() {
-		servedDirectory, err = ioutil.TempDir("", "file_server-test")
-		Expect(err).NotTo(HaveOccurred())
-
-		configFile, err := ioutil.TempFile("", "file_server-test-config")
-		Expect(err).NotTo(HaveOccurred())
-		configPath = configFile.Name()
-
-		port = 8182 + GinkgoParallelNode()
-		cfg := config.FileServerConfig{
-			StaticDirectory: servedDirectory,
-			ConsulCluster:   consulRunner.URL(),
-			ServerAddress:   fmt.Sprintf("localhost:%d", port),
-		}
-
-		encoder := json.NewEncoder(configFile)
-		err = encoder.Encode(&cfg)
-		Expect(err).NotTo(HaveOccurred())
-	})
 
 	AfterEach(func() {
 		session.Kill().Wait()
@@ -98,6 +79,26 @@ var _ = Describe("File server", func() {
 
 	Context("when started correctly", func() {
 		BeforeEach(func() {
+			servedDirectory, err = ioutil.TempDir("", "file_server-test")
+			Expect(err).NotTo(HaveOccurred())
+
+			port = 8182 + GinkgoParallelNode()
+			cfg = config.FileServerConfig{
+				StaticDirectory: servedDirectory,
+				ConsulCluster:   consulRunner.URL(),
+				ServerAddress:   fmt.Sprintf("localhost:%d", port),
+			}
+		})
+
+		JustBeforeEach(func() {
+			configFile, err := ioutil.TempFile("", "file_server-test-config")
+			Expect(err).NotTo(HaveOccurred())
+			configPath = configFile.Name()
+
+			encoder := json.NewEncoder(configFile)
+			err = encoder.Encode(&cfg)
+			Expect(err).NotTo(HaveOccurred())
+
 			session = start()
 			ioutil.WriteFile(filepath.Join(servedDirectory, "test"), []byte("hello"), os.ModePerm)
 		})
@@ -114,29 +115,43 @@ var _ = Describe("File server", func() {
 			Expect(string(body)).To(Equal("hello"))
 		})
 
-		It("registers itself with consul", func() {
-			services, err := consulRunner.NewClient().Agent().Services()
-			Expect(err).NotTo(HaveOccurred())
-			Expect(services).Should(HaveKeyWithValue("file-server",
-				&api.AgentService{
-					Service: "file-server",
-					ID:      "file-server",
-					Port:    port,
-				}))
+		Context("when consul service registration is enabled", func() {
+			BeforeEach(func() {
+				cfg.EnableConsulServiceRegistration = true
+			})
+
+			It("registers itself with consul", func() {
+				services, err := consulRunner.NewClient().Agent().Services()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(services).To(HaveKeyWithValue("file-server",
+					&api.AgentService{
+						Service: "file-server",
+						ID:      "file-server",
+						Port:    port,
+					}))
+			})
+
+			It("registers a TTL healthcheck", func() {
+				checks, err := consulRunner.NewClient().Agent().Checks()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(checks).To(HaveKeyWithValue("service:file-server",
+					&api.AgentCheck{
+						Node:        "0",
+						CheckID:     "service:file-server",
+						Name:        "Service 'file-server' check",
+						Status:      "passing",
+						ServiceID:   "file-server",
+						ServiceName: "file-server",
+					}))
+			})
 		})
 
-		It("registers a TTL healthcheck", func() {
-			checks, err := consulRunner.NewClient().Agent().Checks()
-			Expect(err).NotTo(HaveOccurred())
-			Expect(checks).Should(HaveKeyWithValue("service:file-server",
-				&api.AgentCheck{
-					Node:        "0",
-					CheckID:     "service:file-server",
-					Name:        "Service 'file-server' check",
-					Status:      "passing",
-					ServiceID:   "file-server",
-					ServiceName: "file-server",
-				}))
+		Context("when consul service registration is disabled", func() {
+			It("does not register itself with consul", func() {
+				services, err := consulRunner.NewClient().Agent().Services()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(services).NotTo(HaveKey("file-server"))
+			})
 		})
 	})
 })
