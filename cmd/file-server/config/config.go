@@ -5,15 +5,17 @@ import (
 	"os"
 
 	"code.cloudfoundry.org/debugserver"
+	loggingclient "code.cloudfoundry.org/diego-logging-client"
 	"code.cloudfoundry.org/lager/lagerflags"
 )
 
 type FileServerConfig struct {
-	ServerAddress                   string `json:"server_address,omitempty"`
-	StaticDirectory                 string `json:"static_directory,omitempty"`
-	DropsondePort                   int    `json:"dropsonde_port,omitempty"`
-	ConsulCluster                   string `json:"consul_cluster,omitempty"`
-	EnableConsulServiceRegistration bool   `json:"enable_consul_service_registration,omitempty"`
+	ServerAddress                   string               `json:"server_address,omitempty"`
+	StaticDirectory                 string               `json:"static_directory,omitempty"`
+	DropsondePort                   int                  `json:"dropsonde_port,omitempty"`
+	ConsulCluster                   string               `json:"consul_cluster,omitempty"`
+	EnableConsulServiceRegistration bool                 `json:"enable_consul_service_registration,omitempty"`
+	LoggregatorConfig               loggingclient.Config `json:"loggregator"`
 	debugserver.DebugServerConfig
 	lagerflags.LagerConfig
 }

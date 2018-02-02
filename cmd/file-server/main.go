@@ -10,8 +10,10 @@ import (
 	"code.cloudfoundry.org/clock"
 	"code.cloudfoundry.org/consuladapter"
 	"code.cloudfoundry.org/debugserver"
+	loggingclient "code.cloudfoundry.org/diego-logging-client"
 	"code.cloudfoundry.org/fileserver/cmd/file-server/config"
 	"code.cloudfoundry.org/fileserver/handlers"
+	"code.cloudfoundry.org/go-loggregator/runtimeemitter"
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/lager/lagerflags"
 	"code.cloudfoundry.org/locket"
@@ -44,7 +46,12 @@ func main() {
 
 	logger, reconfigurableSink := lagerflags.NewFromConfig("file-server", cfg.LagerConfig)
 
-	initializeDropsonde(logger, cfg.DropsondePort)
+	_, err = initializeMetron(logger, cfg)
+	if err != nil {
+		logger.Error("failed-to-initialize-metron-client", err)
+		os.Exit(1)
+	}
+
 	consulClient, err := consuladapter.NewClientFromUrl(cfg.ConsulCluster)
 	if err != nil {
 		logger.Fatal("new-client-failed", err)
@@ -77,6 +84,22 @@ func main() {
 	}
 
 	logger.Info("exited")
+}
+
+func initializeMetron(logger lager.Logger, config config.FileServerConfig) (loggingclient.IngressClient, error) {
+	client, err := loggingclient.NewIngressClient(config.LoggregatorConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	if config.LoggregatorConfig.UseV2API {
+		emitter := runtimeemitter.NewV1(client)
+		go emitter.Run()
+	} else {
+		initializeDropsonde(logger, config.DropsondePort)
+	}
+
+	return client, nil
 }
 
 func initializeDropsonde(logger lager.Logger, dropsondePort int) {
