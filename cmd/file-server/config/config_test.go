@@ -19,7 +19,6 @@ var _ = Describe("Config", func() {
 		configData = `{
 			"server_address": "192.168.1.1:8080",
 			"static_directory": "/tmp/static",
-			"dropsonde_port": 12345,
 			"consul_cluster": "consul.example.com",
 			"debug_address": "127.0.0.1:17017",
 			"enable_consul_service_registration": true,
@@ -50,7 +49,6 @@ var _ = Describe("Config", func() {
 		expectedConfig := config.FileServerConfig{
 			ServerAddress:   "192.168.1.1:8080",
 			StaticDirectory: "/tmp/static",
-			DropsondePort:   12345,
 			ConsulCluster:   "consul.example.com",
 			DebugServerConfig: debugserver.DebugServerConfig{
 				DebugAddress: "127.0.0.1:17017",
@@ -93,7 +91,6 @@ var _ = Describe("Config", func() {
 
 			config := config.FileServerConfig{
 				ServerAddress: "0.0.0.0:8080",
-				DropsondePort: 3457,
 				LagerConfig: lagerflags.LagerConfig{
 					LogLevel: "info",
 				},

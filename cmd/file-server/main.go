@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"net"
 	"os"
 	"runtime"
@@ -17,7 +16,6 @@ import (
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/lager/lagerflags"
 	"code.cloudfoundry.org/locket"
-	"github.com/cloudfoundry/dropsonde"
 	"github.com/hashicorp/consul/api"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
@@ -29,10 +27,6 @@ var configFilePath = flag.String(
 	"config",
 	"",
 	"The path to the JSON configuration file.",
-)
-
-const (
-	dropsondeOrigin = "file_server"
 )
 
 func main() {
@@ -95,19 +89,9 @@ func initializeMetron(logger lager.Logger, config config.FileServerConfig) (logg
 	if config.LoggregatorConfig.UseV2API {
 		emitter := runtimeemitter.NewV1(client)
 		go emitter.Run()
-	} else {
-		initializeDropsonde(logger, config.DropsondePort)
 	}
 
 	return client, nil
-}
-
-func initializeDropsonde(logger lager.Logger, dropsondePort int) {
-	dropsondeDestination := fmt.Sprint("localhost:", dropsondePort)
-	err := dropsonde.Initialize(dropsondeDestination, dropsondeOrigin)
-	if err != nil {
-		logger.Error("failed to initialize dropsonde: %v", err)
-	}
 }
 
 func initializeServer(logger lager.Logger, staticDirectory, serverAddress string) ifrit.Runner {

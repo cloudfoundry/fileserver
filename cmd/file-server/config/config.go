@@ -12,7 +12,6 @@ import (
 type FileServerConfig struct {
 	ServerAddress                   string               `json:"server_address,omitempty"`
 	StaticDirectory                 string               `json:"static_directory,omitempty"`
-	DropsondePort                   int                  `json:"dropsonde_port,omitempty"`
 	ConsulCluster                   string               `json:"consul_cluster,omitempty"`
 	EnableConsulServiceRegistration bool                 `json:"enable_consul_service_registration,omitempty"`
 	LoggregatorConfig               loggingclient.Config `json:"loggregator"`
@@ -23,7 +22,6 @@ type FileServerConfig struct {
 func DefaultFileServerConfig() FileServerConfig {
 	return FileServerConfig{
 		ServerAddress: "0.0.0.0:8080",
-		DropsondePort: 3457,
 		LagerConfig:   lagerflags.DefaultLagerConfig(),
 	}
 }
