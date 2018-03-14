@@ -23,6 +23,9 @@ func DefaultFileServerConfig() FileServerConfig {
 	return FileServerConfig{
 		ServerAddress: "0.0.0.0:8080",
 		LagerConfig:   lagerflags.DefaultLagerConfig(),
+		LoggregatorConfig: loggingclient.Config{
+			SourceID: "file_server",
+		},
 	}
 }
 
