@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"code.cloudfoundry.org/debugserver"
+	loggingclient "code.cloudfoundry.org/diego-logging-client"
 	"code.cloudfoundry.org/fileserver/cmd/file-server/config"
 	"code.cloudfoundry.org/lager/lagerflags"
 
@@ -57,6 +58,9 @@ var _ = Describe("Config", func() {
 			LagerConfig: lagerflags.LagerConfig{
 				LogLevel: "debug",
 			},
+			LoggregatorConfig: loggingclient.Config{
+				SourceID: "file_server",
+			},
 		}
 
 		Expect(fileserverConfig).To(Equal(expectedConfig))
@@ -93,6 +97,9 @@ var _ = Describe("Config", func() {
 				ServerAddress: "0.0.0.0:8080",
 				LagerConfig: lagerflags.LagerConfig{
 					LogLevel: "info",
+				},
+				LoggregatorConfig: loggingclient.Config{
+					SourceID: "file_server",
 				},
 			}
 
