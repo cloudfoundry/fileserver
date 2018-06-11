@@ -7,7 +7,7 @@ import (
 )
 
 func New(dir, pathPrefix string, logger lager.Logger) http.Handler {
-	fileServer := http.FileServer(http.Dir(dir))
+	fileServer := NewFileServer(dir)
 	stripped := http.StripPrefix(pathPrefix, fileServer)
 	return loggingHandler{
 		logger:          logger,

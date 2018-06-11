@@ -1,6 +1,8 @@
 package main_test
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -109,6 +111,8 @@ var _ = Describe("File server", func() {
 			defer resp.Body.Close()
 
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			sha256bytes := sha256.Sum256([]byte("hello"))
+			Expect(resp.Header.Get("ETag")).To(Equal(fmt.Sprintf(`"%s"`, hex.EncodeToString(sha256bytes[:]))))
 
 			body, err := ioutil.ReadAll(resp.Body)
 			Expect(err).NotTo(HaveOccurred())
