@@ -79,24 +79,4 @@ var _ = Describe("Config", func() {
 			Expect(err).To(HaveOccurred())
 		})
 	})
-
-	Context("DefaultConfig", func() {
-		BeforeEach(func() {
-			configData = `{}`
-		})
-
-		It("has default values", func() {
-			fileserverConfig, err := config.NewFileServerConfig(configPath)
-			Expect(err).NotTo(HaveOccurred())
-
-			config := config.FileServerConfig{
-				ServerAddress: "0.0.0.0:8080",
-				LagerConfig: lagerflags.LagerConfig{
-					LogLevel: "info",
-				},
-			}
-
-			Expect(fileserverConfig).To(Equal(config))
-		})
-	})
 })

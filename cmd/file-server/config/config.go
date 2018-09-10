@@ -19,15 +19,8 @@ type FileServerConfig struct {
 	lagerflags.LagerConfig
 }
 
-func DefaultFileServerConfig() FileServerConfig {
-	return FileServerConfig{
-		ServerAddress: "0.0.0.0:8080",
-		LagerConfig:   lagerflags.DefaultLagerConfig(),
-	}
-}
-
 func NewFileServerConfig(configPath string) (FileServerConfig, error) {
-	fileServerConfig := DefaultFileServerConfig()
+	fileServerConfig := FileServerConfig{}
 
 	configFile, err := os.Open(configPath)
 	if err != nil {
