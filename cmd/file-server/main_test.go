@@ -87,13 +87,13 @@ var _ = Describe("File server", func() {
 
 			port = 8182 + GinkgoParallelNode()
 			cfg = config.FileServerConfig{
-				ServerAddress: "0.0.0.0:8080",
 				LagerConfig: lagerflags.LagerConfig{
 					LogLevel:   lagerflags.INFO,
 					TimeFormat: lagerflags.FormatUnixEpoch,
 				},
 				StaticDirectory: servedDirectory,
 				ConsulCluster:   consulRunner.URL(),
+				ServerAddress:   fmt.Sprintf("localhost:%d", port),
 			}
 		})
 
