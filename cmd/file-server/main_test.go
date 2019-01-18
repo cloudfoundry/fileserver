@@ -5,45 +5,20 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"time"
 
 	"code.cloudfoundry.org/fileserver/cmd/file-server/config"
 	"code.cloudfoundry.org/lager/lagerflags"
-
 	"github.com/hashicorp/consul/api"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 )
-
-type ByteEmitter struct {
-	written int
-	length  int
-}
-
-func NewEmitter(length int) *ByteEmitter {
-	return &ByteEmitter{
-		length:  length,
-		written: 0,
-	}
-}
-
-func (emitter *ByteEmitter) Read(p []byte) (n int, err error) {
-	if emitter.written >= emitter.length {
-		return 0, io.EOF
-	}
-	time.Sleep(time.Millisecond)
-	p[0] = 0xF1
-	emitter.written++
-	return 1, nil
-}
 
 var _ = Describe("File server", func() {
 	var (
