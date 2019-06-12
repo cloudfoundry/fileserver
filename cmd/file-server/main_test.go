@@ -2,6 +2,7 @@ package main_test
 
 import (
 	"crypto/sha256"
+	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -13,6 +14,8 @@ import (
 
 	"code.cloudfoundry.org/fileserver/cmd/file-server/config"
 	"code.cloudfoundry.org/lager/lagerflags"
+	"code.cloudfoundry.org/tlsconfig"
+	"code.cloudfoundry.org/tlsconfig/certtest"
 	"github.com/hashicorp/consul/api"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -135,6 +138,171 @@ var _ = Describe("File server", func() {
 				services, err := consulRunner.NewClient().Agent().Services()
 				Expect(err).NotTo(HaveOccurred())
 				Expect(services).NotTo(HaveKey("file-server"))
+			})
+		})
+	})
+
+	Context("when HTTPS server is enabled", func() {
+		var tlsPort int
+		BeforeEach(func() {
+			servedDirectory, err = ioutil.TempDir("", "file_server-test")
+			Expect(err).NotTo(HaveOccurred())
+
+			port = 8182 + GinkgoParallelNode()
+			tlsPort = 8282 + GinkgoParallelNode()
+			cfg = config.FileServerConfig{
+				LagerConfig: lagerflags.LagerConfig{
+					LogLevel:   lagerflags.INFO,
+					TimeFormat: lagerflags.FormatUnixEpoch,
+				},
+				HTTPSServerEnabled: true,
+				StaticDirectory:    servedDirectory,
+				ConsulCluster:      consulRunner.URL(),
+				ServerAddress:      fmt.Sprintf("localhost:%d", port),
+			}
+		})
+
+		JustBeforeEach(func() {
+			configFile, err := ioutil.TempFile("", "file_server-test-config")
+			Expect(err).NotTo(HaveOccurred())
+			configPath = configFile.Name()
+
+			encoder := json.NewEncoder(configFile)
+			err = encoder.Encode(&cfg)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("fails if none of the required HTTPS configuration is provided", func() {
+			args := []string{"-config", configPath}
+			session, err = gexec.Start(exec.Command(fileServerBinary, args...), GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(2))
+			Eventually(session.Out).Should(gbytes.Say("invalid-https-configuration"))
+		})
+
+		Context("when just the server address is provided", func() {
+			BeforeEach(func() {
+				cfg.HTTPSListenAddr = fmt.Sprintf("localhost:%d", tlsPort)
+			})
+
+			It("fails if the server cert is not provided", func() {
+				args := []string{"-config", configPath}
+				session, err = gexec.Start(exec.Command(fileServerBinary, args...), GinkgoWriter, GinkgoWriter)
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(2))
+				Eventually(session.Out).Should(gbytes.Say("failed-to-create-tls-config"))
+			})
+		})
+
+		Context("when all required HTTPS configuration is provided", func() {
+			var (
+				caCertPool        *x509.CertPool
+				certFile, keyFile *os.File
+			)
+
+			BeforeEach(func() {
+				ca, err := certtest.BuildCA("test-ca")
+				Expect(err).NotTo(HaveOccurred())
+				cert, err := ca.BuildSignedCertificate("fileserver")
+				Expect(err).NotTo(HaveOccurred())
+				caCertPool, err = ca.CertPool()
+				Expect(err).NotTo(HaveOccurred())
+
+				pem, privKey, err := cert.CertificatePEMAndPrivateKey()
+				Expect(err).NotTo(HaveOccurred())
+
+				certFile, err = ioutil.TempFile("", "testcert")
+				Expect(err).NotTo(HaveOccurred())
+				keyFile, err = ioutil.TempFile("", "testkey")
+				Expect(err).NotTo(HaveOccurred())
+
+				_, err = certFile.Write(pem)
+				Expect(err).NotTo(HaveOccurred())
+				_, err = keyFile.Write(privKey)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(certFile.Close()).To(Succeed())
+				Expect(keyFile.Close()).To(Succeed())
+
+				cfg.HTTPSListenAddr = fmt.Sprintf("localhost:%d", tlsPort)
+				cfg.CertFile = certFile.Name()
+				cfg.KeyFile = keyFile.Name()
+			})
+
+			JustBeforeEach(func() {
+				session = start()
+				Expect(ioutil.WriteFile(filepath.Join(servedDirectory, "test"), []byte("hello"), os.ModePerm)).To(Succeed())
+			})
+
+			AfterEach(func() {
+				Expect(os.Remove(certFile.Name())).To(Succeed())
+				Expect(os.Remove(keyFile.Name())).To(Succeed())
+			})
+
+			It("should successfully return the test file on an HTTPS GET request", func() {
+				clientTLSConfig, err := tlsconfig.Build(
+					tlsconfig.WithInternalServiceDefaults(),
+				).Client(tlsconfig.WithAuthority(caCertPool))
+				Expect(err).NotTo(HaveOccurred())
+
+				httpClient := &http.Client{
+					Transport: &http.Transport{
+						TLSClientConfig: clientTLSConfig,
+					},
+				}
+				resp, err := httpClient.Get(fmt.Sprintf("https://localhost:%d/v1/static/test", tlsPort))
+				Expect(err).NotTo(HaveOccurred())
+				defer resp.Body.Close()
+
+				Expect(resp.StatusCode).To(Equal(http.StatusOK))
+				sha256bytes := sha256.Sum256([]byte("hello"))
+				Expect(resp.Header.Get("ETag")).To(Equal(fmt.Sprintf(`"%s"`, hex.EncodeToString(sha256bytes[:]))))
+
+				body, err := ioutil.ReadAll(resp.Body)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(body)).To(Equal("hello"))
+			})
+
+			It("fails to return test when caCertPool is missing", func() {
+				clientTLSConfig, err := tlsconfig.Build(
+					tlsconfig.WithInternalServiceDefaults(),
+				).Client()
+				Expect(err).NotTo(HaveOccurred())
+
+				httpClient := &http.Client{
+					Transport: &http.Transport{
+						TLSClientConfig: clientTLSConfig,
+					},
+				}
+				_, err = httpClient.Get(fmt.Sprintf("https://localhost:%d/v1/static/test", tlsPort))
+				Expect(err.Error()).To(ContainSubstring("x509: certificate signed by unknown authority"))
+			})
+
+			It("should return a 301 redirect to the HTTPS URL when making an HTTP Get request", func() {
+				clientTLSConfig, err := tlsconfig.Build(
+					tlsconfig.WithInternalServiceDefaults(),
+				).Client(tlsconfig.WithAuthority(caCertPool))
+				Expect(err).NotTo(HaveOccurred())
+
+				httpClient := &http.Client{
+					Transport: &http.Transport{
+						TLSClientConfig: clientTLSConfig,
+					},
+					CheckRedirect: func(req *http.Request, via []*http.Request) error {
+						return http.ErrUseLastResponse
+					},
+				}
+
+				req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%d/v1/static/test", port), nil)
+				Expect(err).NotTo(HaveOccurred())
+				req.Host = "file-server.service.test.com"
+				resp, err := httpClient.Do(req)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(resp.StatusCode).To(Equal(http.StatusMovedPermanently))
+				location, err := resp.Location()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(location.String()).To(Equal(fmt.Sprintf("https://file-server.service.test.com:%d/v1/static/test", tlsPort)))
 			})
 		})
 	})

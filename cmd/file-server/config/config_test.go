@@ -20,8 +20,14 @@ var _ = Describe("Config", func() {
 			"server_address": "192.168.1.1:8080",
 			"static_directory": "/tmp/static",
 			"consul_cluster": "consul.example.com",
-			"debug_address": "127.0.0.1:17017",
 			"enable_consul_service_registration": true,
+
+			"https_server_enabled": true,
+			"https_listen_addr": "192.168.1.1:8443",
+			"cert_file": "/tmp/cert_file",
+			"key_file": "/tmp/key_file",
+
+			"debug_address": "127.0.0.1:17017",
 			"log_level": "debug"
 		}`
 	})
@@ -47,13 +53,19 @@ var _ = Describe("Config", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		expectedConfig := config.FileServerConfig{
-			ServerAddress:   "192.168.1.1:8080",
-			StaticDirectory: "/tmp/static",
-			ConsulCluster:   "consul.example.com",
+			ServerAddress:                   "192.168.1.1:8080",
+			StaticDirectory:                 "/tmp/static",
+			ConsulCluster:                   "consul.example.com",
+			EnableConsulServiceRegistration: true,
+
+			HTTPSServerEnabled: true,
+			HTTPSListenAddr:    "192.168.1.1:8443",
+			CertFile:           "/tmp/cert_file",
+			KeyFile:            "/tmp/key_file",
+
 			DebugServerConfig: debugserver.DebugServerConfig{
 				DebugAddress: "127.0.0.1:17017",
 			},
-			EnableConsulServiceRegistration: true,
 			LagerConfig: lagerflags.LagerConfig{
 				LogLevel: "debug",
 			},

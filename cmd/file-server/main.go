@@ -1,10 +1,13 @@
 package main
 
 import (
+	"crypto/tls"
 	"flag"
 	"net"
+	"net/http"
 	"os"
 	"runtime"
+	"strings"
 
 	"code.cloudfoundry.org/clock"
 	"code.cloudfoundry.org/consuladapter"
@@ -16,6 +19,7 @@ import (
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/lager/lagerflags"
 	"code.cloudfoundry.org/locket"
+	"code.cloudfoundry.org/tlsconfig"
 	"github.com/hashicorp/consul/api"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
@@ -51,8 +55,22 @@ func main() {
 		logger.Fatal("new-client-failed", err)
 	}
 
+	var tlsConfig *tls.Config
+	if cfg.HTTPSServerEnabled {
+		if len(cfg.HTTPSListenAddr) == 0 {
+			logger.Fatal("invalid-https-configuration", nil)
+		}
+		var err error
+		tlsConfig, err = tlsconfig.Build(
+			tlsconfig.WithInternalServiceDefaults(),
+			tlsconfig.WithIdentityFromFile(cfg.CertFile, cfg.KeyFile),
+		).Server()
+		if err != nil {
+			logger.Fatal("failed-to-create-tls-config", err)
+		}
+	}
 	members := grouper.Members{
-		{"file server", initializeServer(logger, cfg.StaticDirectory, cfg.ServerAddress)},
+		{"file server", initializeServer(logger, cfg.StaticDirectory, cfg.ServerAddress, cfg.HTTPSListenAddr, tlsConfig)},
 	}
 
 	if cfg.EnableConsulServiceRegistration {
@@ -94,7 +112,7 @@ func initializeMetron(logger lager.Logger, config config.FileServerConfig) (logg
 	return client, nil
 }
 
-func initializeServer(logger lager.Logger, staticDirectory, serverAddress string) ifrit.Runner {
+func initializeServer(logger lager.Logger, staticDirectory, serverAddress, serverAddressTls string, tlsConfig *tls.Config) ifrit.Runner {
 	if staticDirectory == "" {
 		logger.Fatal("static-directory-missing", nil)
 	}
@@ -103,6 +121,21 @@ func initializeServer(logger lager.Logger, staticDirectory, serverAddress string
 	if err != nil {
 		logger.Error("router-building-failed", err)
 		os.Exit(1)
+	}
+
+	if tlsConfig != nil {
+		return grouper.NewParallel(os.Interrupt, grouper.Members{
+			{Name: "tls-server", Runner: http_server.NewTLSServer(serverAddressTls, fileServerHandler, tlsConfig)},
+			{
+				Name: "redirect-server",
+				Runner: http_server.New(serverAddress, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					httpHostPort := strings.Split(r.Host, ":")
+					tlsHostPort := strings.Split(serverAddressTls, ":")
+					httpsHost := httpHostPort[0] + ":" + tlsHostPort[1]
+					http.Redirect(w, r, "https://"+httpsHost+r.URL.String(), http.StatusMovedPermanently)
+				})),
+			},
+		})
 	}
 
 	return http_server.New(serverAddress, fileServerHandler)

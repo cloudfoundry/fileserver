@@ -10,11 +10,17 @@ import (
 )
 
 type FileServerConfig struct {
-	ServerAddress                   string               `json:"server_address,omitempty"`
-	StaticDirectory                 string               `json:"static_directory,omitempty"`
-	ConsulCluster                   string               `json:"consul_cluster,omitempty"`
-	EnableConsulServiceRegistration bool                 `json:"enable_consul_service_registration,omitempty"`
-	LoggregatorConfig               loggingclient.Config `json:"loggregator"`
+	ServerAddress                   string `json:"server_address,omitempty"`
+	StaticDirectory                 string `json:"static_directory,omitempty"`
+	ConsulCluster                   string `json:"consul_cluster,omitempty"`
+	EnableConsulServiceRegistration bool   `json:"enable_consul_service_registration,omitempty"`
+
+	HTTPSServerEnabled bool   `json:"https_server_enabled"`
+	HTTPSListenAddr    string `json:"https_listen_addr"`
+	CertFile           string `json:"cert_file"`
+	KeyFile            string `json:"key_file"`
+
+	LoggregatorConfig loggingclient.Config `json:"loggregator"`
 	debugserver.DebugServerConfig
 	lagerflags.LagerConfig
 }
