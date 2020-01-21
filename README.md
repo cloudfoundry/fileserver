@@ -5,6 +5,10 @@ File Server
 
 Bob Loblaw's Blob Store
 
+## Reporting issues and requesting features
+
+Please report all issues and feature requests in [cloudfoundry/diego-release](https://github.com/cloudfoundry/diego-release/issues).
+
 ## Uploading Droplets & Build Artifacts
 
 Uploading droplets & build artifacts via CC involves crafting a correctly-formed multipart request. For Droplets we also poll until the async job completes.
