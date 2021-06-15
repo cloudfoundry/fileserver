@@ -15,7 +15,7 @@ import (
 	loggingclient "code.cloudfoundry.org/diego-logging-client"
 	"code.cloudfoundry.org/fileserver/cmd/file-server/config"
 	"code.cloudfoundry.org/fileserver/handlers"
-	"code.cloudfoundry.org/go-loggregator/runtimeemitter"
+	"code.cloudfoundry.org/go-loggregator/v8/runtimeemitter"
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/lager/lagerflags"
 	"code.cloudfoundry.org/locket"
