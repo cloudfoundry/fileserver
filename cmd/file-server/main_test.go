@@ -63,7 +63,7 @@ var _ = Describe("File server", func() {
 			servedDirectory, err = ioutil.TempDir("", "file_server-test")
 			Expect(err).NotTo(HaveOccurred())
 
-			port = 8182 + GinkgoParallelNode()
+			port = 8182 + GinkgoParallelProcess()
 			cfg = config.FileServerConfig{
 				LagerConfig: lagerflags.LagerConfig{
 					LogLevel:   lagerflags.INFO,
@@ -148,8 +148,8 @@ var _ = Describe("File server", func() {
 			servedDirectory, err = ioutil.TempDir("", "file_server-test")
 			Expect(err).NotTo(HaveOccurred())
 
-			port = 8182 + GinkgoParallelNode()
-			tlsPort = 8282 + GinkgoParallelNode()
+			port = 8182 + GinkgoParallelProcess()
+			tlsPort = 8282 + GinkgoParallelProcess()
 			cfg = config.FileServerConfig{
 				LagerConfig: lagerflags.LagerConfig{
 					LogLevel:   lagerflags.INFO,
