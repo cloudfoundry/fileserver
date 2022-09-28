@@ -16,7 +16,6 @@ import (
 	"code.cloudfoundry.org/lager/lagerflags"
 	"code.cloudfoundry.org/tlsconfig"
 	"code.cloudfoundry.org/tlsconfig/certtest"
-	"github.com/hashicorp/consul/api"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -70,7 +69,6 @@ var _ = Describe("File server", func() {
 					TimeFormat: lagerflags.FormatUnixEpoch,
 				},
 				StaticDirectory: servedDirectory,
-				ConsulCluster:   consulRunner.URL(),
 				ServerAddress:   fmt.Sprintf("localhost:%d", port),
 			}
 		})
@@ -101,45 +99,6 @@ var _ = Describe("File server", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(body)).To(Equal("hello"))
 		})
-
-		Context("when consul service registration is enabled", func() {
-			BeforeEach(func() {
-				cfg.EnableConsulServiceRegistration = true
-			})
-
-			It("registers itself with consul", func() {
-				services, err := consulRunner.NewClient().Agent().Services()
-				Expect(err).NotTo(HaveOccurred())
-				Expect(services).To(HaveKeyWithValue("file-server",
-					&api.AgentService{
-						Service: "file-server",
-						ID:      "file-server",
-						Port:    port,
-					}))
-			})
-
-			It("registers a TTL healthcheck", func() {
-				checks, err := consulRunner.NewClient().Agent().Checks()
-				Expect(err).NotTo(HaveOccurred())
-				Expect(checks).To(HaveKeyWithValue("service:file-server",
-					&api.AgentCheck{
-						Node:        "0",
-						CheckID:     "service:file-server",
-						Name:        "Service 'file-server' check",
-						Status:      "passing",
-						ServiceID:   "file-server",
-						ServiceName: "file-server",
-					}))
-			})
-		})
-
-		Context("when consul service registration is disabled", func() {
-			It("does not register itself with consul", func() {
-				services, err := consulRunner.NewClient().Agent().Services()
-				Expect(err).NotTo(HaveOccurred())
-				Expect(services).NotTo(HaveKey("file-server"))
-			})
-		})
 	})
 
 	Context("when HTTPS server is enabled", func() {
@@ -157,7 +116,6 @@ var _ = Describe("File server", func() {
 				},
 				HTTPSServerEnabled: true,
 				StaticDirectory:    servedDirectory,
-				ConsulCluster:      consulRunner.URL(),
 				ServerAddress:      fmt.Sprintf("localhost:%d", port),
 			}
 		})

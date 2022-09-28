@@ -19,8 +19,6 @@ var _ = Describe("Config", func() {
 		configData = `{
 			"server_address": "192.168.1.1:8080",
 			"static_directory": "/tmp/static",
-			"consul_cluster": "consul.example.com",
-			"enable_consul_service_registration": true,
 
 			"https_server_enabled": true,
 			"https_listen_addr": "192.168.1.1:8443",
@@ -53,10 +51,8 @@ var _ = Describe("Config", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		expectedConfig := config.FileServerConfig{
-			ServerAddress:                   "192.168.1.1:8080",
-			StaticDirectory:                 "/tmp/static",
-			ConsulCluster:                   "consul.example.com",
-			EnableConsulServiceRegistration: true,
+			ServerAddress:   "192.168.1.1:8080",
+			StaticDirectory: "/tmp/static",
 
 			HTTPSServerEnabled: true,
 			HTTPSListenAddr:    "192.168.1.1:8443",

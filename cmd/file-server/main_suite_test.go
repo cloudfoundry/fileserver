@@ -1,9 +1,7 @@
 package main_test
 
 import (
-	"code.cloudfoundry.org/consuladapter/consulrunner"
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/config"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 
@@ -11,7 +9,6 @@ import (
 )
 
 var fileServerBinary string
-var consulRunner *consulrunner.ClusterRunner
 
 func TestFileServer(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -25,24 +22,9 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 }, func(fileServerPath []byte) {
 	fileServerBinary = string(fileServerPath)
 
-	consulRunner = consulrunner.NewClusterRunner(
-		consulrunner.ClusterRunnerConfig{
-			StartingPort: 9001 + config.GinkgoConfig.ParallelNode*consulrunner.PortOffsetLength,
-			NumNodes:     1,
-			Scheme:       "http",
-		},
-	)
-
-	consulRunner.Start()
-	consulRunner.WaitUntilReady()
 })
 
 var _ = SynchronizedAfterSuite(func() {
-	consulRunner.Stop()
 }, func() {
 	gexec.CleanupBuildArtifacts()
-})
-
-var _ = BeforeEach(func() {
-	consulRunner.Reset()
 })
