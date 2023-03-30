@@ -3,7 +3,7 @@ package static
 import (
 	"net/http"
 
-	"code.cloudfoundry.org/lager"
+	"code.cloudfoundry.org/lager/v3"
 )
 
 func New(dir, pathPrefix string, logger lager.Logger) http.Handler {
