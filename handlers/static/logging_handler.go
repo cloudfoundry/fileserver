@@ -3,7 +3,7 @@ package static
 import (
 	"net/http"
 
-	"code.cloudfoundry.org/lager"
+	"code.cloudfoundry.org/lager/v3"
 )
 
 type loggingHandler struct {

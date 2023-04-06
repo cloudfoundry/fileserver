@@ -13,8 +13,8 @@ import (
 	"code.cloudfoundry.org/fileserver/cmd/file-server/config"
 	"code.cloudfoundry.org/fileserver/handlers"
 	"code.cloudfoundry.org/go-loggregator/v8/runtimeemitter"
-	"code.cloudfoundry.org/lager"
-	"code.cloudfoundry.org/lager/lagerflags"
+	"code.cloudfoundry.org/lager/v3"
+	"code.cloudfoundry.org/lager/v3/lagerflags"
 	"code.cloudfoundry.org/tlsconfig"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
@@ -60,12 +60,12 @@ func main() {
 		}
 	}
 	members := grouper.Members{
-		{"file server", initializeServer(logger, cfg.StaticDirectory, cfg.ServerAddress, cfg.HTTPSListenAddr, tlsConfig)},
+		{Name: "file server", Runner: initializeServer(logger, cfg.StaticDirectory, cfg.ServerAddress, cfg.HTTPSListenAddr, tlsConfig)},
 	}
 
 	if dbgAddr := debugserver.DebugAddress(flag.CommandLine); dbgAddr != "" {
 		members = append(grouper.Members{
-			{"debug-server", debugserver.Runner(dbgAddr, reconfigurableSink)},
+			{Name: "debug-server", Runner: debugserver.Runner(dbgAddr, reconfigurableSink)},
 		}, members...)
 	}
 
