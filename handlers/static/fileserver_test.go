@@ -4,7 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -25,18 +25,18 @@ var _ = Describe("FileServer", func() {
 
 	BeforeEach(func() {
 		var err error
-		servedDirectory, err = ioutil.TempDir("", "fileserver-test")
+		servedDirectory, err = os.MkdirTemp("", "fileserver-test")
 		Expect(err).NotTo(HaveOccurred())
 		os.Mkdir(filepath.Join(servedDirectory, "testdir"), os.ModePerm)
 
 		tenHoursAgo := time.Now().Add(-10 * time.Hour)
 
-		ioutil.WriteFile(filepath.Join(servedDirectory, "test"), []byte("hello"), os.ModePerm)
+		os.WriteFile(filepath.Join(servedDirectory, "test"), []byte("hello"), os.ModePerm)
 		sha256bytes := sha256.Sum256([]byte("hello"))
 		expectedShaTest = hex.EncodeToString(sha256bytes[:])
 		os.Chtimes(filepath.Join(servedDirectory, "test"), tenHoursAgo, tenHoursAgo)
 
-		ioutil.WriteFile(filepath.Join(servedDirectory, "test2.."), []byte("world"), os.ModePerm)
+		os.WriteFile(filepath.Join(servedDirectory, "test2.."), []byte("world"), os.ModePerm)
 		sha256bytes = sha256.Sum256([]byte("world"))
 		expectedShaTest2 = hex.EncodeToString(sha256bytes[:])
 
@@ -57,7 +57,7 @@ var _ = Describe("FileServer", func() {
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 			Expect(resp.Header.Get("ETag")).To(Equal(fmt.Sprintf(`"%s"`, expectedShaTest)))
 
-			body, err := ioutil.ReadAll(resp.Body)
+			body, err := io.ReadAll(resp.Body)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(body)).To(Equal("hello"))
 		})
@@ -84,7 +84,7 @@ var _ = Describe("FileServer", func() {
 				Expect(resp.StatusCode).To(Equal(http.StatusOK))
 				Expect(resp.Header.Get("ETag")).To(Equal(fmt.Sprintf(`"%s"`, expectedShaTest2)))
 
-				body, err := ioutil.ReadAll(resp.Body)
+				body, err := io.ReadAll(resp.Body)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(string(body)).To(Equal("world"))
 			})
@@ -103,7 +103,7 @@ var _ = Describe("FileServer", func() {
 				Expect(resp.StatusCode).To(Equal(http.StatusNotModified))
 				Expect(resp.Header.Get("ETag")).To(Equal(fmt.Sprintf(`"%s"`, expectedShaTest)))
 
-				body, err := ioutil.ReadAll(resp.Body)
+				body, err := io.ReadAll(resp.Body)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(string(body)).To(Equal(""))
 
@@ -124,7 +124,7 @@ var _ = Describe("FileServer", func() {
 				Expect(resp.StatusCode).To(Equal(http.StatusOK))
 				Expect(resp.Header.Get("ETag")).To(Equal(fmt.Sprintf(`"%s"`, expectedShaTest)))
 
-				body, err := ioutil.ReadAll(resp.Body)
+				body, err := io.ReadAll(resp.Body)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(string(body)).To(Equal("hello"))
 			})

@@ -1,7 +1,6 @@
 package config_test
 
 import (
-	"io/ioutil"
 	"os"
 
 	"code.cloudfoundry.org/debugserver"
@@ -31,7 +30,7 @@ var _ = Describe("Config", func() {
 	})
 
 	JustBeforeEach(func() {
-		configFile, err := ioutil.TempFile("", "file-server-config")
+		configFile, err := os.CreateTemp("", "file-server-config")
 		Expect(err).NotTo(HaveOccurred())
 
 		configPath = configFile.Name()
