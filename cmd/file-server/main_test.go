@@ -6,7 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -59,7 +59,7 @@ var _ = Describe("File server", func() {
 
 	Context("when started correctly", func() {
 		BeforeEach(func() {
-			servedDirectory, err = ioutil.TempDir("", "file_server-test")
+			servedDirectory, err = os.MkdirTemp("", "file_server-test")
 			Expect(err).NotTo(HaveOccurred())
 
 			port = 8182 + GinkgoParallelProcess()
@@ -74,7 +74,7 @@ var _ = Describe("File server", func() {
 		})
 
 		JustBeforeEach(func() {
-			configFile, err := ioutil.TempFile("", "file_server-test-config")
+			configFile, err := os.CreateTemp("", "file_server-test-config")
 			Expect(err).NotTo(HaveOccurred())
 			configPath = configFile.Name()
 
@@ -83,7 +83,7 @@ var _ = Describe("File server", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			session = start()
-			ioutil.WriteFile(filepath.Join(servedDirectory, "test"), []byte("hello"), os.ModePerm)
+			os.WriteFile(filepath.Join(servedDirectory, "test"), []byte("hello"), os.ModePerm)
 		})
 
 		It("should return that file on GET request", func() {
@@ -95,7 +95,7 @@ var _ = Describe("File server", func() {
 			sha256bytes := sha256.Sum256([]byte("hello"))
 			Expect(resp.Header.Get("ETag")).To(Equal(fmt.Sprintf(`"%s"`, hex.EncodeToString(sha256bytes[:]))))
 
-			body, err := ioutil.ReadAll(resp.Body)
+			body, err := io.ReadAll(resp.Body)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(body)).To(Equal("hello"))
 		})
@@ -104,7 +104,7 @@ var _ = Describe("File server", func() {
 	Context("when HTTPS server is enabled", func() {
 		var tlsPort int
 		BeforeEach(func() {
-			servedDirectory, err = ioutil.TempDir("", "file_server-test")
+			servedDirectory, err = os.MkdirTemp("", "file_server-test")
 			Expect(err).NotTo(HaveOccurred())
 
 			port = 8182 + GinkgoParallelProcess()
@@ -121,7 +121,7 @@ var _ = Describe("File server", func() {
 		})
 
 		JustBeforeEach(func() {
-			configFile, err := ioutil.TempFile("", "file_server-test-config")
+			configFile, err := os.CreateTemp("", "file_server-test-config")
 			Expect(err).NotTo(HaveOccurred())
 			configPath = configFile.Name()
 
@@ -169,9 +169,9 @@ var _ = Describe("File server", func() {
 				pem, privKey, err := cert.CertificatePEMAndPrivateKey()
 				Expect(err).NotTo(HaveOccurred())
 
-				certFile, err = ioutil.TempFile("", "testcert")
+				certFile, err = os.CreateTemp("", "testcert")
 				Expect(err).NotTo(HaveOccurred())
-				keyFile, err = ioutil.TempFile("", "testkey")
+				keyFile, err = os.CreateTemp("", "testkey")
 				Expect(err).NotTo(HaveOccurred())
 
 				_, err = certFile.Write(pem)
@@ -189,7 +189,7 @@ var _ = Describe("File server", func() {
 
 			JustBeforeEach(func() {
 				session = start()
-				Expect(ioutil.WriteFile(filepath.Join(servedDirectory, "test"), []byte("hello"), os.ModePerm)).To(Succeed())
+				Expect(os.WriteFile(filepath.Join(servedDirectory, "test"), []byte("hello"), os.ModePerm)).To(Succeed())
 			})
 
 			AfterEach(func() {
@@ -216,7 +216,7 @@ var _ = Describe("File server", func() {
 				sha256bytes := sha256.Sum256([]byte("hello"))
 				Expect(resp.Header.Get("ETag")).To(Equal(fmt.Sprintf(`"%s"`, hex.EncodeToString(sha256bytes[:]))))
 
-				body, err := ioutil.ReadAll(resp.Body)
+				body, err := io.ReadAll(resp.Body)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(string(body)).To(Equal("hello"))
 			})
