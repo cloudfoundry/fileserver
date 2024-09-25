@@ -73,6 +73,7 @@ func (f *fileServer) validateFile(p string, w http.ResponseWriter) (ret http.Fil
 	}
 	defer func() {
 		if ret == nil {
+			// #nosec G104  - ignore this because we don't want to modify the http response from the rest of the function with a file.close error
 			file.Close()
 		}
 	}()
